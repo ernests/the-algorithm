@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cluster Explorer - Discover Your Algorithmic Communities</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Cluster Explorer: Your Algorithmic Communities</h1>
+
+    <!-- ============================================ -->
+    <!-- PART 1: INTUITION -->
+    <!-- ============================================ -->
+
+    <h2>What Are Clusters?</h2>
+
+    <p>Twitter's algorithm doesn't see you as "interested in AI" or "interested in cooking." Instead, it assigns you to invisible <strong>communities called clusters</strong>—discovered by analyzing the follow graph of 400+ million users.</p>
+
+    <p><strong>The scale</strong>: There are approximately <strong>145,000 clusters</strong> discovered from the top 20 million most-followed accounts. Each cluster represents a community with similar interests, discovered organically from who follows whom.</p>
+
+    <p><strong>Why clusters matter</strong>: Your cluster membership determines what appears in your For You feed. If you're 70% assigned to the "AI/ML Research" cluster and 30% to "Cooking," your feed will reflect that split. The algorithm shows you content from producers (accounts) in your clusters.</p>
+
+    <h3>How Clusters Are Discovered</h3>
+
+    <p>Clusters aren't manually defined—they emerge from the data using <strong>Sparse Binary Matrix Factorization (SBF)</strong> with Metropolis-Hastings optimization:</p>
+
+    <ol>
+      <li><strong>Build similarity graph</strong>: Calculate how similar each producer is to every other producer based on <em>who follows them</em> (cosine similarity of follower patterns)</li>
+      <li><strong>Find communities</strong>: Use SBF algorithm with Metropolis-Hastings optimization to group producers who share many followers into clusters, with the constraint that each producer belongs to <em>exactly one</em> cluster (maximally sparse)</li>
+      <li><strong>Assign producers</strong>: Each producer gets assigned to their strongest cluster (called "KnownFor")—this sparsity constraint is what creates clear community separation</li>
+      <li><strong>Derive user interests</strong>: Your cluster membership comes from the clusters of producers you follow and engage with (called "InterestedIn")</li>
+    </ol>
+
+    <div class="callout">
+      <p><strong>The Critical Insight</strong>: Your clusters come from <strong>ENGAGEMENT</strong> (likes, replies, retweets), NOT just follows. Engagement has a 100-day half-life, which means:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>Your likes from today have 100% weight</li>
+        <li>Your likes from 100 days ago still have 50% weight</li>
+        <li>Your likes from 200 days ago still have 25% weight</li>
+      </ul>
+      <p style="margin-top: 0.75rem;"><strong>This makes your clusters "sticky"</strong>—they change slowly over months, not days. Following diverse accounts isn't enough; you must <em>engage</em> with diverse content.</p>
+    </div>
+
+    <h3>The Shape of Cluster Assignment</h3>
+
+    <p><strong>For new accounts</strong>: Your follows determine your initial clusters. If you follow 5 AI researchers and 2 chefs, you'll start ~70% AI cluster, ~30% cooking cluster.</p>
+
+    <p><strong>Over time (weeks to months)</strong>: Your engagement history dominates. If you like 50 AI tweets and 10 cooking tweets in 100 days, your clusters will drift toward AI regardless of who you follow.</p>
+
+    <p><strong>Long-term steady state</strong>: Your clusters reflect the last 100-200 days of engagement with exponential decay. Past behavior has momentum—changing clusters requires sustained engagement pattern changes over 3-6 months.</p>
+
+    <hr style="margin: 3rem 0;">
+
+    <!-- ============================================ -->
+    <!-- PART 2: FEEL (Interactive) -->
+    <!-- ============================================ -->
+
+    <h2>Experience Your Cluster Assignment</h2>
+
+    <p>Use this calculator to see how the algorithm would categorize you based on your follows and engagement patterns. Notice how engagement weights dominate over follows.</p>
+
+    <div class="widget">
+      <h3>Step 1: Choose a Profile</h3>
+      <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Start with a preset or build your own custom profile:
+      </p>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+          Profile Type:
+        </label>
+        <select id="profile-select" style="width: 100%; max-width: 400px;">
+          <option value="custom">Custom (select below)</option>
+          <option value="balanced">Balanced User (33% AI, 33% Cooking, 34% Politics)</option>
+          <option value="tech">Tech Enthusiast (75% AI, 15% Cooking, 10% Politics)</option>
+          <option value="politics">Political Junkie (80% Politics, 15% AI, 5% Cooking)</option>
+          <option value="cooking">Cooking Enthusiast (75% Cooking, 20% AI, 5% Politics)</option>
+        </select>
+      </div>
+
+      <div id="custom-selection">
+        <h3>Step 2: Select Accounts You Follow</h3>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          These provide your <strong>initial cluster assignment</strong>. Engagement will shift this over time.
+        </p>
+
+        <div class="producer-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; margin: 1.5rem 0;">
+          <!-- AI/Tech accounts -->
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="ai" data-cluster="ai">
+            <span style="margin-left: 0.5rem; color: #1DA1F2;">@ylecun (AI/ML)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="ai" data-cluster="ai">
+            <span style="margin-left: 0.5rem; color: #1DA1F2;">@karpathy (AI)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="ai" data-cluster="ai">
+            <span style="margin-left: 0.5rem; color: #1DA1F2;">@sama (Tech CEO)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="ai" data-cluster="ai">
+            <span style="margin-left: 0.5rem; color: #1DA1F2;">@elonmusk (Tech)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="ai" data-cluster="ai">
+            <span style="margin-left: 0.5rem; color: #1DA1F2;">@goodfellow (AI)</span>
+          </label>
+
+          <!-- Cooking accounts -->
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="cooking" data-cluster="cooking">
+            <span style="margin-left: 0.5rem; color: #17bf63;">@gordonramsay (Chef)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="cooking" data-cluster="cooking">
+            <span style="margin-left: 0.5rem; color: #17bf63;">@seriouseats (Food)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="cooking" data-cluster="cooking">
+            <span style="margin-left: 0.5rem; color: #17bf63;">@altonbrown (Chef)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="cooking" data-cluster="cooking">
+            <span style="margin-left: 0.5rem; color: #17bf63;">@kenji (Food Science)</span>
+          </label>
+
+          <!-- Politics accounts -->
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="politics" data-cluster="politics">
+            <span style="margin-left: 0.5rem; color: #ff9500;">@nytimes (News)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="politics" data-cluster="politics">
+            <span style="margin-left: 0.5rem; color: #ff9500;">@washingtonpost (News)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="politics" data-cluster="politics">
+            <span style="margin-left: 0.5rem; color: #ff9500;">@politico (Politics)</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="producer-checkbox" value="politics" data-cluster="politics">
+            <span style="margin-left: 0.5rem; color: #ff9500;">@thehill (Politics)</span>
+          </label>
+        </div>
+
+        <h3>Step 3: Add Your Engagement History</h3>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          <strong>This is where cluster assignment actually happens.</strong> Engagement with 100-day half-life dominates over follows.
+        </p>
+
+        <div style="margin: 1.5rem 0;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+            <span style="color: #1DA1F2;">■</span> AI/Tech engagement (last 100 days): <span id="ai-weight-display" style="color: var(--primary-color);">50</span>
+          </label>
+          <input type="range" id="ai-engagement" min="0" max="200" value="50" style="width: 100%; max-width: 500px;">
+          <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            Likes, replies, retweets (weighted by engagement type)
+          </p>
+        </div>
+
+        <div style="margin: 1.5rem 0;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+            <span style="color: #17bf63;">■</span> Cooking engagement (last 100 days): <span id="cooking-weight-display" style="color: var(--success);">30</span>
+          </label>
+          <input type="range" id="cooking-engagement" min="0" max="200" value="30" style="width: 100%; max-width: 500px;">
+        </div>
+
+        <div style="margin: 1.5rem 0;">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+            <span style="color: #ff9500;">■</span> Politics engagement (last 100 days): <span id="politics-weight-display" style="color: #ff9500;">10</span>
+          </label>
+          <input type="range" id="politics-engagement" min="0" max="200" value="10" style="width: 100%; max-width: 500px;">
+        </div>
+      </div>
+
+      <button id="calculate-btn" style="width: 100%; max-width: 400px; margin-top: 2rem; font-size: 1.1rem; padding: 1rem;">
+        Calculate My Clusters
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="results-container" style="display: none; margin-top: 3rem;">
+      <hr>
+
+      <h2>Your Cluster Assignment</h2>
+      <p style="font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 2rem;">
+        Based on your follows and engagement, here's how the algorithm categorizes you:
+      </p>
+
+      <div style="max-width: 700px; margin: 0 auto 2rem;">
+        <canvas id="cluster-chart"></canvas>
+      </div>
+
+      <div id="interpretation" style="margin: 2rem 0;">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <div class="callout" style="margin: 2rem 0;">
+        <h3 style="margin-top: 0;">Follows vs Engagement: The Comparison</h3>
+        <table id="comparison-table" style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border-color);">
+              <th style="text-align: left; padding: 0.75rem;">Cluster</th>
+              <th style="text-align: right; padding: 0.75rem;">From Follows Only</th>
+              <th style="text-align: right; padding: 0.75rem;">From Engagement</th>
+              <th style="text-align: right; padding: 0.75rem;"><strong>Final (Combined)</strong></th>
+            </tr>
+          </thead>
+          <tbody id="comparison-body">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-top: 1rem;">
+          <strong>Key observation</strong>: Engagement weights dominate over follows. This is why "just follow diverse accounts" doesn't diversify your feed—you must <em>engage</em> with diverse content.
+        </p>
+      </div>
+
+      <div class="callout success" style="margin: 2rem 0;">
+        <h3 style="margin-top: 0;">What Happens Next?</h3>
+        <p><strong>Your clusters determine your feed</strong>: The algorithm shows you content from producers in your clusters, proportionally. If you're 75% AI cluster, ~75% of your For You feed will be AI content.</p>
+        <p style="margin-top: 1rem;"><strong>Your clusters drift over time</strong>: The gravitational pull effect will amplify your dominant cluster. Use the Journey Simulator to see how your feed will evolve over 6 months.</p>
+        <p style="margin-top: 1rem; text-align: center;">
+          <a href="journey-simulator.html" style="display: inline-block; padding: 0.75rem 1.5rem; background-color: var(--primary-color); color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            Try the Journey Simulator →
+          </a>
+        </p>
+      </div>
+
+      <div id="warnings" style="margin: 2rem 0;">
+        <!-- Populated by JavaScript for specific warnings -->
+      </div>
+    </div>
+
+    <hr style="margin: 3rem 0;">
+
+    <!-- ============================================ -->
+    <!-- PART 3: PROOF (Math & Code) -->
+    <!-- ============================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>How Cluster Assignment Actually Works</h3>
+
+    <p>Your cluster membership (InterestedIn) is calculated through matrix multiplication:</p>
+
+    <pre><code>InterestedIn[you] = EngagementGraph[you, producers] × KnownFor[producers, clusters]
+
+Where:
+- EngagementGraph: Your follows + engagement history (100-day half-life)
+- KnownFor: Each producer's primary cluster assignment
+- Result: Your score for each of the ~145,000 clusters
+- Final step: L2 normalization (scores sum to 1.0)</code></pre>
+
+    <h4>Concrete Example</h4>
+
+    <p>Let's say you follow and engage with these producers over 100 days:</p>
+
+    <pre><code>Follows:
+- @ylecun (KnownFor: AI cluster)
+- @karpathy (KnownFor: AI cluster)
+- @gordonramsay (KnownFor: Cooking cluster)
+
+Engagement (likes, weighted):
+- AI tweets: 50 engagements
+- Cooking tweets: 30 engagements
+
+Matrix multiplication:
+AI cluster score = (2 follows × follow_weight) + (50 engagements × engagement_weight)
+Cooking cluster score = (1 follow × follow_weight) + (30 engagements × engagement_weight)
+
+If follow_weight = 1.0 and engagement_weight = 5.0 (engagement dominates):
+
+AI: (2 × 1.0) + (50 × 5.0) = 2 + 250 = 252
+Cooking: (1 × 1.0) + (30 × 5.0) = 1 + 150 = 151
+
+Normalization (divide by sum to get percentages):
+Sum = 252 + 151 = 403
+
+AI: 252 / 403 = 0.625 (62.5%)
+Cooking: 151 / 403 = 0.375 (37.5%)
+
+Result: You're assigned 62.5% AI, 37.5% Cooking
+
+Notice: Engagement dominated! Even though you followed 2:1 AI:Cooking,
+your 50:30 engagement ratio (1.67:1) created a 62.5:37.5 final ratio (also 1.67:1).
+The engagement weight (5.0) completely overwhelmed the follow weight (1.0).</code></pre>
+
+    <h3>The 100-Day Half-Life Formula</h3>
+
+    <p>Engagement decay follows exponential decay with 100-day half-life:</p>
+
+    <pre><code>weight(t) = initial_weight × (0.5)^(days_ago / 100)
+
+Examples:
+- Today (t=0):       weight = 1.0 × (0.5)^(0/100)   = 1.0   (100%)
+- 50 days ago:       weight = 1.0 × (0.5)^(50/100)  = 0.707 (70.7%)
+- 100 days ago:      weight = 1.0 × (0.5)^(100/100) = 0.5   (50% - HALF-LIFE)
+- 200 days ago:      weight = 1.0 × (0.5)^(200/100) = 0.25  (25%)
+- 300 days ago:      weight = 1.0 × (0.5)^(300/100) = 0.125 (12.5%)</code></pre>
+
+    <p><strong>Why this matters</strong>: Your engagement from 6 months ago (180 days) still has 29% weight. Your clusters have <strong>momentum</strong>—they resist change. Diversifying your feed requires sustained engagement pattern changes over 3-6 months, not just following different accounts.</p>
+
+    <h3>Update Frequencies</h3>
+
+    <p>Cluster data updates at different cadences:</p>
+
+    <ul>
+      <li><strong>KnownFor</strong> (producer → cluster mapping): Updated <strong>weekly</strong> (7 days)
+        <ul>
+          <li>Computationally expensive (runs SBF with Metropolis-Hastings on 20M producers)</li>
+          <li>Changes slowly (follow graph is stable)</li>
+        </ul>
+      </li>
+      <li><strong>InterestedIn</strong> (your cluster interests): Updated <strong>weekly</strong> (7 days)
+        <ul>
+          <li>Much cheaper (matrix multiplication using existing KnownFor)</li>
+          <li>Reflects your recent engagement faster</li>
+        </ul>
+      </li>
+    </ul>
+
+    <p><strong>Implication</strong>: Your clusters lag behind your behavior. It takes up to 1 week for new engagement to affect InterestedIn, and up to 1 week for follow graph changes to affect which clusters exist (KnownFor). Both update on the same weekly schedule.</p>
+
+    <h3>Cluster Discovery Process</h3>
+
+    <p>The ~145,000 clusters are discovered using <strong>Sparse Binary Matrix Factorization (SBF)</strong> with Metropolis-Hastings optimization:</p>
+
+    <ol>
+      <li><strong>Build follow graph</strong>: 400M+ users, filter to top 20M most-followed (producers)</li>
+      <li><strong>Calculate similarity</strong>: Cosine similarity between producers based on shared followers
+        <pre><code>similarity(Producer_A, Producer_B) = (shared_followers) / √(followers_A × followers_B)</code></pre>
+      </li>
+      <li><strong>Filter weak edges</strong>: Remove producer pairs with low similarity (threshold ~0.1-0.2)</li>
+      <li><strong>Run SBF with Metropolis-Hastings</strong>: Iteratively optimize cluster assignments over 4 epochs with sparsity constraint
+        <pre><code>Constraint: Each producer → exactly ONE cluster (maximally sparse)
+Optimization: Metropolis-Hastings sampling to find best assignments
+Initialization: Start from previous week's assignments (incremental stability)</code></pre>
+      </li>
+      <li><strong>Result</strong>: ~145,000 clusters, each representing a community with shared interests, with clear separation (no producer overlap)</li>
+    </ol>
+
+    <p><strong>Why sparsity matters</strong>: The "one cluster per producer" constraint is what creates echo chambers by design. Producers can't belong to multiple clusters, which enforces clear community boundaries and limits cross-cluster discovery.</p>
+
+    <h3>Why 145,000 Clusters?</h3>
+
+    <p>This number is <strong>emergent from the follow graph structure</strong>, not directly tuned:</p>
+    <ul>
+      <li><strong>Self-perpetuating</strong>: The algorithm reads the max cluster ID from the previous week's data and uses that as the starting point</li>
+      <li><strong>Not directly configurable</strong>: Would require completely rebuilding the clustering from scratch to change</li>
+      <li><strong>~145,000 reflects natural community structure</strong>: When running SBF on 20M producers with current similarity thresholds</li>
+      <li><strong>Trade-offs</strong>: Too few = overly broad ("Tech" too diverse), too many = too granular (sparse data)</li>
+      <li><strong>Empirically stable</strong>: Week-over-week incremental updates maintain approximately this count</li>
+    </ul>
+
+    <h3>Code References</h3>
+
+    <div style="background-color: var(--code-background); padding: 1.5rem; border-radius: 6px; margin: 1.5rem 0;">
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Cluster formation (SBF/Metropolis-Hastings)</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/update_known_for/UpdateKnownForSBFRunner.scala" target="_blank" rel="noopener"><code>UpdateKnownForSBFRunner.scala</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>KnownFor generation (production job)</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/update_known_for/UpdateKnownFor20M145K2020.scala" target="_blank" rel="noopener"><code>UpdateKnownFor20M145K2020.scala</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Note on Louvain</strong>:<br>
+      Louvain clustering exists in <a href="https://github.com/twitter/the-algorithm/blob/main/common/clustering/LouvainClusteringMethod.scala" target="_blank" rel="noopener"><code>LouvainClusteringMethod.scala</code></a> but is used for TWICE (alternative multi-embeddings), NOT for main KnownFor cluster formation</p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>InterestedIn calculation</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L292" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:292</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>100-day half-life decay</strong>:<br>
+      <code>favScoreHalfLife100Days</code> (used throughout SimClusters codebase)</p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>L2 normalization</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/common/SimClustersEmbedding.scala#L59-L72" target="_blank" rel="noopener"><code>SimClustersEmbedding.scala:59-72</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Update frequencies</strong> (verified from Twitter Engineering Blog):<br>
+      <a href="https://blog.x.com/engineering/en_us/topics/open-source/2023/twitter-recommendation-algorithm" target="_blank" rel="noopener">Twitter's Recommendation Algorithm Blog Post (March 2023)</a></p>
+    </div>
+
+    <h3>Key Implications</h3>
+
+    <div class="callout" style="margin: 2rem 0;">
+      <p><strong>For users trying to diversify</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>Following diverse accounts gives you initial diverse clusters (helpful for new accounts)</li>
+        <li>But engagement is what matters long-term—you must like/reply to diverse content</li>
+        <li>Expect 3-6 months to shift cluster balance due to 100-day half-life</li>
+        <li>You're fighting the gravitational pull effect (multiplicative scoring amplifies dominant clusters)</li>
+      </ul>
+
+      <p style="margin-top: 1rem;"><strong>For creators trying to reach audiences</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>Your KnownFor cluster assignment determines who sees your tweets</li>
+        <li>Clear niche = strong cluster assignment = multiplicative advantage</li>
+        <li>Multi-topic accounts get weak/diffuse cluster assignment = penalty</li>
+        <li>Building reach requires building a strong following within ONE cluster first</li>
+      </ul>
+
+      <p style="margin-top: 1rem;"><strong>Why echo chambers emerge</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>SBF algorithm enforces sparsity constraint (one cluster per producer = forced separation)</li>
+        <li>100-day half-life creates momentum (clusters resist change)</li>
+        <li>Multiplicative scoring amplifies dominant clusters (gravitational pull)</li>
+        <li>No built-in exploration or cross-cluster recommendation mechanisms</li>
+        <li>Echo chamber architecture is the optimization objective, not a side effect</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="journey-simulator.html">Try Journey Simulator →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/cluster-explorer.js"></script>
+</body>
+</html>

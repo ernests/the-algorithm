@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Journey Simulator - How Your Feed Will Drift</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Your Feed Journey Simulator</h1>
+    <p class="lead">Experience how your feed will drift over time, even if you don't change anything.</p>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>What Is The Gravitational Pull Effect?</h2>
+
+    <p>Your interests won't stay balanced. Even if you start with 60% AI and 40% Cooking, you'll drift to 76% AI and 24% Cooking over 6 months—without consciously changing your behavior. This isn't a bug, it's how <strong>multiplicative scoring</strong> works.</p>
+
+    <h3>The Core Mechanism</h3>
+
+    <p>The algorithm uses multiplication, not addition, to score tweets. Your dominant interest gets a scoring advantage, which means you see more of it, which means you engage more with it, which increases the advantage, creating a <strong>feedback loop</strong>.</p>
+
+    <pre><code>Multiplicative scoring (what actually happens):
+AI tweet: base_score × 0.60 = higher score
+Cooking tweet: base_score × 0.40 = lower score
+
+Result: You see more AI → engage more with AI → AI interest increases → cycle repeats</code></pre>
+
+    <h3>Why This Matters</h3>
+
+    <ul>
+      <li><strong>Inevitable drift</strong>: You can't maintain balance without active intervention</li>
+      <li><strong>Echo chambers by design</strong>: The algorithm concentrates your interests over time</li>
+      <li><strong>Loss of diversity</strong>: Minority interests get progressively buried</li>
+      <li><strong>Unconscious shift</strong>: Most users never realize this is happening to them</li>
+    </ul>
+
+    <h3>The Shape of the Drift</h3>
+
+    <p>The drift is <strong>exponential at first, then plateaus</strong>. The first 12 weeks see rapid change (60/40 → 70/30), then it slows as you approach saturation (~80/20 is typical plateau). The algorithm doesn't show you what you want—it shows you what it predicts you'll engage with.</p>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: FEEL                                                 -->
+    <!-- Interactive: Simulate your own feed journey                  -->
+    <!-- ============================================================ -->
+
+    <h2>Simulate Your Own Journey</h2>
+
+    <h3>Your Starting Point</h3>
+    <p>When you first joined X, you followed a mix of accounts. Let's say you followed accounts in two interest areas. What was your initial split?</p>
+
+    <div class="widget">
+      <h3>Configure Your Interests</h3>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+          Primary Interest Name:
+        </label>
+        <input type="text" id="interest1-name" value="AI/Tech" placeholder="e.g., AI, Politics, Sports" style="width: 100%; max-width: 300px;">
+      </div>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+          Secondary Interest Name:
+        </label>
+        <input type="text" id="interest2-name" value="Cooking" placeholder="e.g., Cooking, Art, Music" style="width: 100%; max-width: 300px;">
+      </div>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: block; margin-bottom: 1rem; font-weight: 600;">
+          Initial Interest Split: <span id="split-display" style="color: var(--primary-color);">60% / 40%</span>
+        </label>
+        <input
+          type="range"
+          id="interest-split"
+          min="51"
+          max="80"
+          value="60"
+          style="width: 100%; max-width: 400px;"
+        >
+        <div style="display: flex; justify-content: space-between; max-width: 400px; font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+          <span>50/50 (balanced)</span>
+          <span>80/20 (skewed)</span>
+        </div>
+      </div>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+          Engagement Intensity:
+        </label>
+        <select id="engagement-level" style="width: 100%; max-width: 300px;">
+          <option value="low">Low (casual user, 5-10 engagements/day)</option>
+          <option value="medium" selected>Medium (active user, 20-30 engagements/day)</option>
+          <option value="high">High (power user, 50+ engagements/day)</option>
+        </select>
+      </div>
+
+      <div style="margin: 1.5rem 0;">
+        <label style="display: flex; align-items: center; font-weight: 600; cursor: pointer;">
+          <input type="checkbox" id="frs-enabled" checked style="margin-right: 0.75rem; width: 20px; height: 20px; cursor: pointer;">
+          Enable Follow Recommendations (FRS) - accelerates drift
+        </label>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem; margin-left: 2rem;">
+          When enabled, X will recommend accounts from your dominant interest, accelerating the gravitational pull.
+        </p>
+      </div>
+
+      <button id="simulate-btn" style="width: 100%; max-width: 300px; margin-top: 1rem;">
+        Simulate My Journey
+      </button>
+    </div>
+
+    <div id="results-container" style="display: none; margin-top: 3rem;">
+      <h2>Your Feed Over Time</h2>
+      <p id="projection-summary" style="font-size: 1.125rem; line-height: 1.6; color: var(--text-secondary);"></p>
+
+      <div style="background-color: var(--background-alt); padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+        <canvas id="drift-chart" width="800" height="400"></canvas>
+      </div>
+
+      <h3>Week-by-Week Breakdown</h3>
+      <table id="drift-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th id="interest1-header">Interest 1</th>
+            <th id="interest2-header">Interest 2</th>
+            <th>What's Happening</th>
+          </tr>
+        </thead>
+        <tbody id="drift-table-body">
+          <!-- Populated by JavaScript -->
+        </tbody>
+      </table>
+
+      <div class="callout warning" style="margin-top: 2rem;">
+        <h3 style="margin-top: 0;">Why This Happens</h3>
+        <p>The algorithm uses <strong>multiplicative scoring</strong> at multiple stages of the pipeline:</p>
+        <pre><code>Tweet Score = base_quality × your_cluster_interest
+
+AI tweet: 0.9 × 0.60 = 0.54
+Cooking tweet: 0.9 × 0.40 = 0.36
+
+AI tweet wins by 50%!</code></pre>
+        <p>Because you see more AI content, you engage more with AI, which increases your AI interest score, which makes AI content score even higher... <strong>feedback loop</strong>.</p>
+        <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:94</code></a></p>
+      </div>
+
+      <h3>How to Escape the Gravity Well</h3>
+      <p>Breaking out of this drift requires <strong>deliberate counter-engagement</strong>:</p>
+      <ol>
+        <li><strong>Nuclear counter-engagement</strong>: Stop ALL engagement with your dominant interest for 30 days. Over-engage with your minority interest (40+ interactions/day). Timeline: 30 days to rebalance.</li>
+        <li><strong>Follow ratio rebalancing</strong>: Unfollow 50% of dominant cluster accounts. Follow 50+ new minority cluster accounts. Timeline: 1-2 weeks to see effects.</li>
+        <li><strong>Use the "Following" tab</strong>: Chronological feed from your actual follows. No algorithm. No drift.</li>
+        <li><strong>Use Lists</strong>: Create curated lists for specific interests. Algorithm doesn't affect these.</li>
+      </ol>
+
+      <div class="callout success">
+        <p><strong>The reality</strong>: Most users never realize this is happening. They wake up one day deep in a filter bubble they didn't consciously choose. Now you know. What will you do about it?</p>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 3: PROOF                                                -->
+    <!-- Technical details: How it works, formulas, code references   -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>How This Simulator Works</h3>
+    <p>This simulator models the gravitational pull effect based on the actual algorithm code:</p>
+    <ul>
+      <li><strong>Multiplicative scoring</strong>: Cluster interest multiplies tweet scores at candidate generation AND ML scoring stages</li>
+      <li><strong>Engagement reinforcement</strong>: More visibility → more engagement → higher interest score</li>
+      <li><strong>L2 normalization</strong>: Your interests sum to 1.0, so one interest increasing means others decrease (zero-sum game)</li>
+      <li><strong>FRS acceleration</strong>: Follow recommendations create a triple reinforcement (see content → engage → follow)</li>
+      <li><strong>Weekly batches</strong>: InterestedIn scores update weekly via batch jobs, not real-time</li>
+    </ul>
+
+    <h3>Simplifications in This Model</h3>
+    <p>This simulator uses simplified formulas for illustration. The actual algorithm:</p>
+    <ul>
+      <li>Assigns you to ~10-20 clusters (out of 145,000 total), not just 2</li>
+      <li>Uses complex engagement prediction models with 6,000+ features per tweet</li>
+      <li>Applies multiple filters and penalties that compound</li>
+      <li>Updates in weekly batches, creating 0-7 day lag</li>
+    </ul>
+
+    <h3>Technical Details</h3>
+    <div class="code-ref">
+      <p><strong>Multiplicative scoring</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:94</code></a></p>
+      <p><strong>InterestedIn calculation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L26-L30" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:26-30</code></a></p>
+      <p><strong>Weekly batch updates</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L59" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:59</code></a> - <code>val batchIncrement: Duration = Days(7)</code></p>
+      <p><strong>L2 normalization</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/common/SimClustersEmbedding.scala#L59-L72" target="_blank" rel="noopener"><code>SimClustersEmbedding.scala:59-72</code></a></p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="reinforcement-loop.html">See Reinforcement Loop →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/journey-simulator.js"></script>
+</body>
+</html>

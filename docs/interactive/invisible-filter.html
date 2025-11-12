@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Invisible Filter - How Clusters Create Different Realities</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>The Invisible Filter</h1>
+    <p class="lead">You and your friend see the same tweets, but in completely different orders. This is how clusters create filter bubbles.</p>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>What Are Cluster Filters?</h2>
+
+    <p>Twitter doesn't show everyone the same feed in the same order. Even if you and your friend follow similar accounts and see identical tweets, those tweets will rank completely differently for each of you. This isn't random—it's driven by an invisible mechanism called <strong>cluster-based personalization</strong>.</p>
+
+    <h3>The Core Mechanism</h3>
+
+    <p>Twitter assigns every user and every tweet to invisible communities called "clusters" (there are ~145,000 of them). Think of clusters as interest groups: "AI/Tech enthusiasts," "Cooking fans," "Political junkies," etc. When scoring tweets for your feed, the algorithm multiplies each tweet's base quality score by <strong>your cluster interest</strong>.</p>
+
+    <p><strong>The result</strong>: The exact same tweet with the exact same base quality will score completely differently for you vs your friend based on which clusters you belong to and how strongly.</p>
+
+    <h3>Why This Matters</h3>
+
+    <p>This mechanism creates <strong>different realities on the same platform</strong>:</p>
+    <ul>
+      <li><strong>Same content, different visibility</strong>: What's #1 in your feed might be #15 in your friend's feed</li>
+      <li><strong>Invisible and uncontrollable</strong>: You can't see your cluster assignments, can't opt out, can't manually balance them</li>
+      <li><strong>Reinforces over time</strong>: Each engagement strengthens your cluster interests, making the filter stronger</li>
+      <li><strong>Creates echo chambers by design</strong>: The more you engage with a topic, the more of it you see, the less of everything else you see</li>
+    </ul>
+
+    <h3>The Shape of the Behavior</h3>
+
+    <p>Cluster filtering happens through <strong>multiplication</strong>, not addition. If you're 60% interested in AI/Tech and 15% interested in Politics:</p>
+
+    <pre><code>AI tweet (base quality: 0.85):
+  Your score: 0.85 × 0.60 = 0.51
+
+Politics tweet (same base quality: 0.85):
+  Your score: 0.85 × 0.15 = 0.128
+
+Same quality, 4× score difference just from clusters!</code></pre>
+
+    <p><strong>Consequence</strong>: Your existing interests get amplified, minority interests get suppressed, and you drift toward increasingly concentrated feeds over time.</p>
+
+    <div class="callout">
+      <p><strong>New to clusters?</strong> See the <a href="cluster-explorer.html">Cluster Explorer</a> to understand where these communities come from and how they're based on who you follow.</p>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: FEEL                                                 -->
+    <!-- Interactive: Experience how cluster interests change feeds   -->
+    <!-- ============================================================ -->
+
+    <h2>Experience The Filter</h2>
+
+    <p>See how cluster interests create completely different feeds for different people. Adjust YOUR cluster interests and compare against a friend's profile—the same 15 tweets will rank in completely different orders.</p>
+
+    <h3>Configure Your Profiles</h3>
+
+    <div class="profile-configurator">
+      <div class="profile-config">
+        <h3>👤 You</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Adjust your cluster interests to see how it affects your feed ranking.
+        </p>
+
+        <div class="cluster-slider">
+          <label>
+            <span class="cluster-name" style="color: #1DA1F2;">■ AI/Tech</span>
+            <span class="cluster-value" id="user-ai-display">60%</span>
+          </label>
+          <input type="range" id="user-ai" min="5" max="95" value="60" step="5">
+        </div>
+
+        <div class="cluster-slider">
+          <label>
+            <span class="cluster-name" style="color: #17bf63;">■ Cooking</span>
+            <span class="cluster-value" id="user-cooking-display">25%</span>
+          </label>
+          <input type="range" id="user-cooking" min="5" max="95" value="25" step="5">
+        </div>
+
+        <div class="cluster-slider">
+          <label>
+            <span class="cluster-name" style="color: #ff9500;">■ Politics</span>
+            <span class="cluster-value" id="user-politics-display">15%</span>
+          </label>
+          <input type="range" id="user-politics" min="5" max="95" value="15" step="5">
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+          Total: <span id="user-total" style="font-weight: 600;">100%</span>
+        </p>
+      </div>
+
+      <div class="profile-config">
+        <h3>👥 Your Friend</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Select a friend's profile to compare against yours.
+        </p>
+
+        <div class="friend-selector">
+          <button class="friend-btn active" data-profile="politics-focused">
+            Political Junkie<br>
+            <span style="font-size: 0.8rem; opacity: 0.8;">80% Politics, 15% AI, 5% Cooking</span>
+          </button>
+          <button class="friend-btn" data-profile="cooking-enthusiast">
+            Cooking Enthusiast<br>
+            <span style="font-size: 0.8rem; opacity: 0.8;">75% Cooking, 20% AI, 5% Politics</span>
+          </button>
+          <button class="friend-btn" data-profile="balanced">
+            Balanced User<br>
+            <span style="font-size: 0.8rem; opacity: 0.8;">33% AI, 33% Cooking, 34% Politics</span>
+          </button>
+          <button class="friend-btn" data-profile="tech-specialist">
+            Tech Specialist<br>
+            <span style="font-size: 0.8rem; opacity: 0.8;">90% AI, 8% Politics, 2% Cooking</span>
+          </button>
+        </div>
+
+        <div id="friend-profile-display" style="margin-top: 1rem; padding: 1rem; background: var(--background-alt); border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between; margin: 0.25rem 0;">
+            <span style="color: #1DA1F2;">■ AI/Tech</span>
+            <span id="friend-ai-display" style="font-weight: 600;">15%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 0.25rem 0;">
+            <span style="color: #17bf63;">■ Cooking</span>
+            <span id="friend-cooking-display" style="font-weight: 600;">5%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 0.25rem 0;">
+            <span style="color: #ff9500;">■ Politics</span>
+            <span id="friend-politics-display" style="font-weight: 600;">80%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="compare-btn" style="width: 100%; max-width: 400px; margin: 2rem auto; display: block; font-size: 1.1rem; padding: 1rem;">
+      Compare Our Feeds →
+    </button>
+
+    <div id="comparison-container" style="display: none;">
+      <hr style="margin: 3rem 0;">
+
+      <h2>The Same 15 Tweets, Ranked Differently</h2>
+      <p style="font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+        These are the exact same tweets with the same base quality scores. The only difference is YOUR cluster interests vs YOUR FRIEND'S cluster interests. Toggle between views to see how the same content gets completely reordered.
+      </p>
+
+      <div class="view-toggle-container">
+        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          <strong>View feed ranked by:</strong>
+        </p>
+        <div class="view-toggle">
+          <button id="view-user" class="view-btn active">
+            👤 My Feed
+          </button>
+          <button id="view-friend" class="view-btn">
+            👥 My Friend's Feed
+          </button>
+        </div>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.75rem; font-style: italic;">
+          Each tweet shows how it ranks for BOTH of you - watch the differences!
+        </p>
+      </div>
+
+      <div id="tweet-feed" class="tweet-list" style="margin-top: 2rem;">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <div class="callout warning" style="margin-top: 3rem;">
+        <h3 style="margin-top: 0;">What You're Seeing</h3>
+        <p>The tweets are <strong>identical</strong>. The base quality scores are <strong>identical</strong>. The only difference is the multiplication:</p>
+        <pre><code>Your Score = Base Quality × Your Cluster Interest
+Friend's Score = Base Quality × Friend's Cluster Interest</code></pre>
+        <p>This is how <strong>personalization becomes polarization</strong>. You're not seeing "what's happening" - you're seeing "what the algorithm thinks you want to see" based on invisible cluster assignments.</p>
+      </div>
+
+      <div class="callout" style="margin-top: 2rem;">
+        <h3 style="margin-top: 0;">The Key Insights</h3>
+        <ul style="margin: 1rem 0;">
+          <li><strong>Same tweets, different rankings</strong>: What's #1 for you might be #15 for your friend</li>
+          <li><strong>Invisible multiplier</strong>: Cluster weights determine what you see before engagement scoring even happens</li>
+          <li><strong>Different realities</strong>: You and your friend literally see different worlds on the same platform</li>
+          <li><strong>No escape</strong>: You can't see cluster assignments, can't opt out, can't balance them manually</li>
+          <li><strong>Reinforces over time</strong>: Each engagement strengthens your clusters, making the filter stronger</li>
+        </ul>
+      </div>
+
+      <div class="callout success" style="margin-top: 2rem;">
+        <h3 style="margin-top: 0;">Try This</h3>
+        <p>Adjust YOUR cluster sliders above to:</p>
+        <ul>
+          <li><strong>Go extreme (90/5/5)</strong>: Watch how your feed becomes almost entirely one topic</li>
+          <li><strong>Match your friend's profile</strong>: See how your feeds align when cluster interests align</li>
+          <li><strong>Go balanced (33/33/34)</strong>: Notice how you see more diversity but lower overall scores (no strong signal)</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr style="margin-top: 3rem;">
+
+    <!-- ============================================================ -->
+    <!-- PART 3: PROOF                                                -->
+    <!-- Technical details: Formulas, calculations, code references   -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>The Scoring Formula</h3>
+
+    <p>Each tweet's final score is calculated as:</p>
+
+    <pre><code>final_score = base_quality_score × your_cluster_interest
+
+Where:
+- base_quality_score = tweet's inherent quality (0.0 to 1.0)
+- your_cluster_interest = your interest in the tweet's cluster (0.0 to 1.0)
+
+Example:
+Tweet belongs to AI/Tech cluster (cluster_id: 12345)
+Base quality: 0.85
+Your AI/Tech interest: 0.60
+Your friend's AI/Tech interest: 0.15
+
+Your score: 0.85 × 0.60 = 0.51
+Friend's score: 0.85 × 0.15 = 0.128
+
+Same tweet, 4× score difference!</code></pre>
+
+    <h3>How Clusters Affect the Full Pipeline</h3>
+
+    <p>Cluster-based personalization doesn't just happen once—it happens at multiple stages, compounding the effect.</p>
+
+    <h4>Stage 1: Candidate Generation</h4>
+    <p>Before any engagement scoring happens, the algorithm fetches candidates based on YOUR clusters:</p>
+    <pre><code>Your clusters: 60% AI, 25% Cooking, 15% Politics
+
+Candidate fetching:
+- Fetch 800 tweets from AI cluster
+- Fetch 800 tweets from Cooking cluster
+- Fetch 800 tweets from Politics cluster
+
+Initial bias: More AI tweets fetched simply because you're 60% AI!</code></pre>
+
+    <h4>Stage 2: Cluster Scoring (What This Simulator Shows)</h4>
+    <p>Each tweet gets multiplied by your cluster interest:</p>
+    <pre><code>AI tweet (base quality: 0.85):
+- Your score: 0.85 × 0.60 = 0.51
+- Friend's score: 0.85 × 0.15 = 0.128
+
+Politics tweet (base quality: 0.85):
+- Your score: 0.85 × 0.15 = 0.128
+- Friend's score: 0.85 × 0.80 = 0.68
+
+Same quality tweet, 5.3× score difference!</code></pre>
+
+    <h4>Stage 3: Engagement Scoring</h4>
+    <p>After cluster multiplication, engagement weights are applied. But cluster filtering already determined which tweets you see!</p>
+
+    <h4>The Compound Effect</h4>
+    <p>Cluster scoring happens at MULTIPLE stages:</p>
+    <ul>
+      <li><strong>Candidate Generation</strong>: Determines which tweets are fetched (Stage 1)</li>
+      <li><strong>ML Scoring</strong>: Multiplies scores (Stage 3)</li>
+      <li><strong>Result</strong>: Double amplification of your existing interests</li>
+    </ul>
+
+    <p><strong>This is why 60/40 becomes 76/24 in the Journey Simulator</strong> - the multiplicative effect compounds at multiple stages.</p>
+
+    <hr>
+
+    <h2>Code References</h2>
+    <div class="code-ref">
+      <p><strong>Cluster assignment (InterestedIn)</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L26-L30" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:26-30</code></a></p>
+      <p><strong>Multiplicative scoring</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L84-L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:84-94</code></a></p>
+      <p><strong>Cluster count</strong>: ~145,000 clusters total (most users assigned to 10-20)</p>
+      <p><strong>L2 normalization</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/common/SimClustersEmbedding.scala#L59-L72" target="_blank" rel="noopener"><code>SimClustersEmbedding.scala:59-72</code></a></p>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="journey-simulator.html">Try Journey Simulator →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/invisible-filter.js"></script>
+</body>
+</html>

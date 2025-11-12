@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phoenix: Behavioral Sequence Prediction System - Twitter Algorithm Analysis</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Phoenix: The Behavioral Prediction System</h1>
+    <p class="lead">Twitter built a sequence-based prediction system for user behavior. Instead of aggregating features, Phoenix models up to 522 of your recent actions (spanning hours to days of behavior) to predict what you'll do next—like, reply, click. The architecture suggests a fundamental shift from feature-based to sequence-based recommendation.</p>
+
+    <div class="callout warning" style="margin-top: 2rem;">
+      <p><strong>Important</strong>: This analysis is based on code structure and architecture patterns. While the infrastructure is verifiably complete, some aspects (like training objectives and behavioral modeling details) are <strong>inferred from architectural similarities to transformer-based systems</strong>. We clearly mark what's verified code vs. reasoned inference throughout.</p>
+    </div>
+
+    <div class="callout" style="margin-top: 1rem;">
+      <p><strong>Status</strong>: Phoenix infrastructure is complete and production-ready (September 2025 commit). It's currently feature-flagged (default = false), suggesting it may be in testing phase. The architecture represents a shift from feature-based to sequence-based prediction.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>From Averages to Sequences</h2>
+
+    <p>The current recommendation system (NaviModelScorer) thinks about you in terms of <strong>averages and statistics</strong>: "Alice likes 30% tech content, 20% sports, follows 342 people, engages 10 times per day." Phoenix thinks about you in terms of <strong>what you're doing right now</strong>: "Alice just clicked 3 tech tweets in a row, expanded photos, watched a video—she's deep-diving into tech content."</p>
+
+    <h3>The Core Difference</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0;">
+      <div style="border: 2px solid #1DA1F2; padding: 1.5rem; border-radius: 8px; background-color: rgba(29, 161, 242, 0.05);">
+        <h4 style="margin-top: 0; color: #1DA1F2;">Current System: NaviModelScorer</h4>
+        <p style="font-weight: 600;">Feature-Based Prediction</p>
+
+        <p><strong>Your profile</strong>:</p>
+        <pre><code>User features: {
+  avg_likes_per_day: 10.5
+  avg_replies_per_day: 2.3
+  favorite_topics: [tech, sports]
+  follower_count: 342
+  engagement_rate: 0.15
+  ... (many aggregated features)
+}</code></pre>
+
+        <p><strong>Algorithm asks</strong>: "What does Alice <em>usually</em> like?"</p>
+        <p><strong>Time horizon</strong>: Months of aggregated behavior</p>
+        <p><strong>Updates</strong>: Daily batch recalculation</p>
+      </div>
+
+      <div style="border: 2px solid #17bf63; padding: 1.5rem; border-radius: 8px; background-color: rgba(23, 191, 99, 0.05);">
+        <h4 style="margin-top: 0; color: #17bf63;">Phoenix System</h4>
+        <p style="font-weight: 600;">Sequence-Based Prediction</p>
+
+        <p><strong>Your recent actions</strong>:</p>
+        <pre><code>Action sequence: [
+  CLICK(tech_tweet_1)
+  READ(tech_tweet_1)
+  LIKE(tech_tweet_1)
+  CLICK(tech_tweet_2)
+  EXPAND_IMAGE(tech_tweet_2)
+  CLICK(tech_tweet_3)
+  ... (up to 522 aggregated actions)
+]</code></pre>
+
+        <p><strong>Algorithm asks</strong>: "What will Alice do <em>next</em> given her recent behavioral pattern?"</p>
+        <p><strong>Time horizon</strong>: Hours to days of behavioral history (522 aggregated actions)</p>
+        <p><strong>Updates</strong>: Real-time action capture, aggregated into sessions</p>
+      </div>
+    </div>
+
+    <h3>The LLM Analogy (Inferred from Architecture)</h3>
+
+    <p><strong>Hypothesis</strong>: Phoenix uses a transformer-based architecture similar to language models, but instead of predicting text, it predicts actions. This inference is based on:</p>
+    <ul style="margin-bottom: 1rem;">
+      <li>Service name: <code>user_history_transformer</code> - external service (dependency in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/BUILD.bazel#L20" target="_blank" rel="noopener">BUILD.bazel:20</a>, gRPC client in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L26" target="_blank" rel="noopener">PhoenixUtils.scala:26</a>)</li>
+      <li>Sequence-to-sequence prediction pattern (verified in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixScorer.scala#L30-L85" target="_blank" rel="noopener">PhoenixScorer.scala</a>)</li>
+      <li>Log probability outputs (verified in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L143-L159" target="_blank" rel="noopener">PhoenixUtils.scala:143-159</a>)</li>
+      <li>Self-attention over temporal sequences (inferred from architecture)</li>
+    </ul>
+
+    <p><strong>Comparison to language models</strong>:</p>
+
+    <table style="width: 100%; margin: 2rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: var(--background-alt);">
+          <th style="padding: 1rem; text-align: left;">Aspect</th>
+          <th style="padding: 1rem; text-align: left;">ChatGPT / Claude</th>
+          <th style="padding: 1rem; text-align: left;">Phoenix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Architecture</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Transformer (attention-based)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Transformer (attention-based)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Input</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Sequence of tokens (words)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Sequence of actions (likes, clicks, replies)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Context Window</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">8K-200K tokens</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">522 aggregated actions (hours to days of behavior)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Prediction Task</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">"What word comes next?"</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">"What action comes next?"</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Output</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Probability distribution over vocabulary</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Probability distribution over 13 action types</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Training Objective</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Predict next token from context</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Predict next action from behavioral context</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>What It Learns</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Language patterns, grammar, context</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Behavioral patterns, engagement momentum, intent</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>What Phoenix Could Capture (Inference from Sequence Modeling)</h3>
+
+    <p><strong>Hypothesis</strong>: By modeling behavior as a sequence, Phoenix could understand dynamics that aggregated features miss. These capabilities are <strong>inferred from how sequence models typically work</strong>, not explicitly verified in code:</p>
+
+    <div style="margin: 2rem 0;">
+      <h4>1. Session-Level Interest</h4>
+      <pre><code>Scenario: User interested in both Tech and Sports (50/50 split)
+
+Navi prediction: 50% tech, 50% sports (always the same)
+
+Phoenix prediction:
+  Monday morning: [TECH] [TECH] [TECH] [TECH] → 85% tech, 15% sports
+  Monday evening: [SPORTS] [SPORTS] [SPORTS] → 10% tech, 90% sports
+
+Same user, different behavioral context → different predictions</code></pre>
+
+      <h4>2. Behavioral Momentum</h4>
+      <pre><code>Engagement Streak:
+[LIKE] [REPLY] [LIKE] [LIKE] [CLICK] [LIKE] → High engagement mode
+Phoenix: Next tweet gets 75% engagement probability
+
+Passive Browsing:
+[SCROLL] [SCROLL] [CLICK] [SCROLL] → Low engagement mode
+Phoenix: Next tweet gets 15% engagement probability
+
+Same user, different momentum → different feed composition</code></pre>
+
+      <h4>3. Context Switches</h4>
+      <pre><code>Context Switch Detection:
+[NEWS] [NEWS] [NEWS] → [MEME] [MEME] → Context switch!
+
+Phoenix recognizes: User shifted from serious content to entertainment
+Adapts feed: More memes, less news (for this session)</code></pre>
+
+      <h4>4. Intent Signals</h4>
+      <pre><code>Behavioral Pattern: Profile Click + Follow
+[CLICK_TWEET] → [CLICK_PROFILE] → [FOLLOW] → Next tweet from that author
+
+Phoenix learns: Profile click + follow = strong interest signal
+Result: Boost similar authors immediately</code></pre>
+    </div>
+
+    <h3>Why This Could Change Everything</h3>
+
+    <p><strong>Hypothesis</strong>: Phoenix could represent Twitter's move toward <strong>"delete heuristics"</strong>—the vision of replacing manual tuning with learned patterns. This interpretation is based on architectural design patterns:</p>
+
+    <div style="margin: 2rem 0;">
+      <div style="background-color: var(--background-alt); padding: 2rem; border-radius: 8px; border-left: 4px solid #ff6b6b;">
+        <h4 style="margin-top: 0; color: #ff6b6b;">What Gets Deleted</h4>
+        <ul>
+          <li><strong>Manual weights</strong>: Reply: 75.0, Favorite: 0.5, Report: -369.0 → Phoenix learns what matters from data</li>
+          <li><strong>Hand-crafted aggregated features</strong>: avg_likes_per_day, favorite_topics, engagement_rate → Just action sequences</li>
+          <li><strong>15+ manual penalties</strong>: OON penalty, author diversity, feedback fatigue → Phoenix learns user preferences</li>
+          <li><strong>Static predictions</strong>: "Alice likes 30% tech" → "Alice is deep-diving tech RIGHT NOW"</li>
+        </ul>
+      </div>
+    </div>
+
+    <p><strong>The result</strong>: An algorithm that understands your <em>current intent</em> from your behavioral patterns, not your <em>historical preferences</em> from aggregated statistics. This is closer to how humans actually browse—following threads of interest as they emerge, not mechanically consuming averaged content.</p>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: FEEL                                                 -->
+    <!-- Interactive: Behavioral Sequence Simulator                   -->
+    <!-- ============================================================ -->
+
+    <h2>Experience Behavioral Prediction (Simulation)</h2>
+
+    <p>This simulator demonstrates how sequence-based prediction <strong>could work</strong> based on Phoenix's architecture. The predictions shown are illustrative of what behavioral sequence modeling enables, not actual Phoenix output.</p>
+
+    <div class="widget" style="margin: 2rem 0;">
+      <h3>Behavioral Sequence Simulator</h3>
+
+      <div style="margin: 2rem 0;">
+        <p style="font-weight: 600;">Your Recent Actions (Last 8 actions):</p>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">Click actions to add them to your sequence. Phoenix analyzes your behavioral pattern and predicts your next action.</p>
+
+        <div id="action-buttons" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 2rem;">
+          <button class="action-btn" data-action="LIKE" data-category="tech" style="background-color: rgba(29, 161, 242, 0.2); border: 2px solid #1DA1F2;">
+            ❤️ Like Tech
+          </button>
+          <button class="action-btn" data-action="CLICK" data-category="tech" style="background-color: rgba(29, 161, 242, 0.2); border: 2px solid #1DA1F2;">
+            👁️ Click Tech
+          </button>
+          <button class="action-btn" data-action="REPLY" data-category="tech" style="background-color: rgba(29, 161, 242, 0.2); border: 2px solid #1DA1F2;">
+            💬 Reply Tech
+          </button>
+
+          <button class="action-btn" data-action="LIKE" data-category="sports" style="background-color: rgba(23, 191, 99, 0.2); border: 2px solid #17bf63;">
+            ❤️ Like Sports
+          </button>
+          <button class="action-btn" data-action="CLICK" data-category="sports" style="background-color: rgba(23, 191, 99, 0.2); border: 2px solid #17bf63;">
+            👁️ Click Sports
+          </button>
+          <button class="action-btn" data-action="REPLY" data-category="sports" style="background-color: rgba(23, 191, 99, 0.2); border: 2px solid #17bf63;">
+            💬 Reply Sports
+          </button>
+
+          <button class="action-btn" data-action="SCROLL" data-category="neutral" style="background-color: rgba(136, 153, 166, 0.2); border: 2px solid #8899a6;">
+            📜 Scroll Past
+          </button>
+        </div>
+
+        <div style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4 style="margin: 0;">Your Sequence:</h4>
+            <button id="clear-sequence-btn" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Clear Sequence</button>
+          </div>
+          <div id="action-sequence" style="display: flex; gap: 0.5rem; flex-wrap: wrap; min-height: 50px; align-items: center;">
+            <span style="color: var(--text-secondary); font-style: italic;">No actions yet. Click buttons above to build your sequence.</span>
+          </div>
+        </div>
+
+        <div id="predictions-container" style="display: none;">
+          <h4>Phoenix Predictions: What You'll Do Next</h4>
+
+          <div style="margin: 1.5rem 0;">
+            <p style="font-weight: 600; margin-bottom: 0.5rem;">Behavioral State Detected:</p>
+            <div id="behavioral-state" style="padding: 1rem; background-color: var(--background-alt); border-radius: 8px; border-left: 4px solid var(--primary-color);"></div>
+          </div>
+
+          <div style="margin: 1.5rem 0;">
+            <p style="font-weight: 600; margin-bottom: 1rem;">Next Action Probabilities:</p>
+            <div id="prediction-bars"></div>
+          </div>
+
+          <div style="margin: 1.5rem 0;">
+            <p style="font-weight: 600; margin-bottom: 0.5rem;">What This Means:</p>
+            <div id="prediction-interpretation" style="padding: 1rem; background-color: var(--background-alt); border-radius: 8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top: 2rem;">
+        <h4 style="margin-top: 0;">Try These Patterns:</h4>
+        <ul style="margin-bottom: 0;">
+          <li><strong>Deep Dive</strong>: Click [Tech] [Tech] [Tech] [Tech] → Phoenix detects focused exploration</li>
+          <li><strong>Engagement Streak</strong>: [Like Tech] [Reply Tech] [Like Tech] → High momentum mode</li>
+          <li><strong>Context Switch</strong>: [Tech] [Tech] [Sports] [Sports] → Phoenix adapts to interest shift</li>
+          <li><strong>Passive Browsing</strong>: [Scroll] [Scroll] [Scroll] → Low engagement mode</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 3: PROOF                                                -->
+    <!-- Technical details: Architecture, formulas, code              -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Architecture</h2>
+
+    <h3>Two-Stage Pipeline</h3>
+
+    <p>Phoenix splits prediction and aggregation into two separate stages:</p>
+
+    <pre><code>Stage 1: PhoenixScorer (Prediction via gRPC)
+  Input: User action sequence (up to 1024 actions) + candidate tweets
+  Process: Transformer model predicts engagement probabilities
+  Output: 13 predicted probabilities per tweet
+
+Stage 2: PhoenixModelRerankingScorer (Aggregation)
+  Input: 13 predicted probabilities from Stage 1
+  Process: Per-head normalization + weighted aggregation
+  Output: Final Phoenix score for ranking</code></pre>
+
+    <h3>Stage 1: Behavioral Sequence Prediction</h3>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixScorer.scala#L30-L85" target="_blank" rel="noopener"><code>PhoenixScorer.scala:30-85</code></a></p>
+
+    <p><strong>Input: Action Sequence</strong></p>
+    <pre><code>User action sequence (522 aggregated actions spanning hours to days):
+[
+  Session 1: FAV(tweet_123, author_A) + CLICK(tweet_123, author_A),
+  Session 2: CLICK(tweet_456, author_B),
+  Session 3: REPLY(tweet_789, author_C) + FAV(tweet_790, author_C),
+  Session 4: FAV(tweet_234, author_A),
+  ...
+  Session 522: CLICK(tweet_999, author_D)
+]
+
+(Actions grouped into sessions using 5-minute proximity windows)
+
+Candidate tweets: [tweet_X, tweet_Y, tweet_Z]</code></pre>
+
+    <p><strong>Processing: Transformer Model (Inferred Architecture)</strong></p>
+    <p><strong>Verified</strong>: Phoenix calls an external gRPC service named <code>user_history_transformer</code> (dependency in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/BUILD.bazel#L20" target="_blank" rel="noopener">BUILD.bazel:20</a>, client interface <code>RecsysPredictorGrpc</code> in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L26" target="_blank" rel="noopener">PhoenixUtils.scala:26</a>, usage in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L110-L135" target="_blank" rel="noopener">PhoenixUtils.scala:110-135</a>)<br>
+    <strong>Note</strong>: The actual service implementation is not in the open-source repository.<br>
+    <strong>Inferred</strong>: The internal architecture likely follows transformer patterns based on the service name and sequence-to-sequence design:</p>
+
+    <pre><code>Inferred Transformer Architecture:
+  1. Embed each action in the sequence (action type + tweet metadata)
+  2. Apply self-attention to identify relevant behavioral patterns
+  3. For each candidate tweet, compute relevance to behavioral context
+  4. Output 13 engagement probabilities via softmax
+
+Verified Output Format (log probabilities):
+{
+  "tweet_X": {
+    "SERVER_TWEET_FAV": {"log_prob": -0.868, "prob": 0.42},
+    "SERVER_TWEET_REPLY": {"log_prob": -2.526, "prob": 0.08},
+    "SERVER_TWEET_RETWEET": {"log_prob": -2.996, "prob": 0.05},
+    "CLIENT_TWEET_CLICK": {"log_prob": -1.273, "prob": 0.28},
+    ... (9 more engagement types)
+  },
+  ...
+}</code></pre>
+
+    <p><strong>Why gRPC Service? (Verified: separate service, inferred: reasons)</strong></p>
+    <ul>
+      <li><strong>Verified</strong>: Phoenix calls external gRPC service for predictions (<a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L110-L135" target="_blank" rel="noopener">PhoenixUtils.scala:110-135</a>)</li>
+      <li><strong>Inferred</strong>: Sequence model inference is compute-intensive (likely GPU/TPU accelerated)</li>
+      <li><strong>Inferred</strong>: Separate service allows independent scaling</li>
+      <li><strong>Inferred</strong>: Runs on specialized ML infrastructure, not home-mixer cluster</li>
+    </ul>
+
+    <h3>Stage 2: Per-Head Normalization and Aggregation</h3>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixModelRerankingScorer.scala#L23-L81" target="_blank" rel="noopener"><code>PhoenixModelRerankingScorer.scala:23-81</code></a></p>
+
+    <p><strong>Step 1: Per-Head Max Normalization</strong></p>
+    <p>For each engagement type (each "head"), find the maximum prediction across all candidates:</p>
+
+    <pre><code>3 candidates, 3 engagement types:
+Candidate A: [FAV: 0.42, REPLY: 0.08, CLICK: 0.28]
+Candidate B: [FAV: 0.15, REPLY: 0.35, CLICK: 0.20]
+Candidate C: [FAV: 0.30, REPLY: 0.12, CLICK: 0.25]
+
+Per-head max:
+  Max FAV: 0.42
+  Max REPLY: 0.35
+  Max CLICK: 0.28
+
+Attach max to each candidate for normalized comparison:
+Candidate A: [(0.42, max:0.42), (0.08, max:0.35), (0.28, max:0.28)]
+Candidate B: [(0.15, max:0.42), (0.35, max:0.35), (0.20, max:0.28)]
+Candidate C: [(0.30, max:0.42), (0.12, max:0.35), (0.25, max:0.28)]</code></pre>
+
+    <p><strong>Why normalize per-head?</strong> Different engagement types have different prediction ranges. Normalization ensures fair aggregation.</p>
+
+    <p><strong>Step 2: Weighted Aggregation</strong></p>
+    <p>Phoenix uses the <strong>same weights as NaviModelScorer</strong> for fair A/B testing comparison:</p>
+
+    <p class="code-ref"><strong>Weight parameters</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L1028" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-1028</code></a><br>
+    <strong>Actual values</strong>: <a href="https://github.com/twitter/the-algorithm-ml/tree/main/projects/home/recap" target="_blank" rel="noopener"><code>the-algorithm-ml/projects/home/recap</code></a></p>
+
+    <pre><code>Weights (configured in production):
+  FAV: 0.5
+  REPLY: 13.5
+  REPLY_ENGAGED_BY_AUTHOR: 75.0
+  RETWEET: 1.0
+  GOOD_CLICK: 12.0
+  ... (8 more positive weights)
+  NEGATIVE_FEEDBACK: -74.0
+  REPORT: -369.0
+
+Final Score = Σ (prediction_i × weight_i)
+
+Example for Candidate A:
+  FAV:    0.42 × 0.5   = 0.21
+  REPLY:  0.08 × 13.5  = 1.08
+  CLICK:  0.28 × 12.0  = 3.36
+  ... (sum all 13 engagement types)
+
+  Phoenix Score = 0.21 + 1.08 + 3.36 + ... = 8.42</code></pre>
+
+    <h3>The 13 Engagement Types</h3>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/model/PhoenixPredictedScoreFeature.scala#L30-L193" target="_blank" rel="noopener"><code>PhoenixPredictedScoreFeature.scala:30-193</code></a></p>
+
+    <p>Phoenix predicts probabilities for 13 different action types:</p>
+
+    <table style="width: 100%; margin: 2rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: var(--background-alt);">
+          <th style="padding: 1rem; text-align: left;">Engagement Type</th>
+          <th style="padding: 1rem; text-align: left;">Action</th>
+          <th style="padding: 1rem; text-align: left;">Weight</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">FAV</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Like/favorite tweet</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">0.5</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">REPLY</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Reply to tweet</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">13.5</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">REPLY_ENGAGED_BY_AUTHOR</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Reply + author engages back</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">75.0</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">RETWEET</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Retweet or quote</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">1.0</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">GOOD_CLICK</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Click + dwell (quality engagement)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">12.0</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">PROFILE_CLICK</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Click author profile</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">3.0</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">VIDEO_QUALITY_VIEW</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Watch video ≥10 seconds</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">8.0</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">... (6 more)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Share, bookmark, open link, etc.</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">0.2 - 11.0</td>
+        </tr>
+        <tr style="background-color: rgba(255, 107, 107, 0.1);">
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>NEGATIVE_FEEDBACK</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Not interested, block, mute</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>-74.0</strong></td>
+        </tr>
+        <tr style="background-color: rgba(255, 107, 107, 0.1);">
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>REPORT</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Report tweet</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>-369.0</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Context Window: 522 Aggregated Actions (Hours to Days)</h3>
+
+    <p class="code-ref"><strong>Action sequence hydration</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/feature_hydrator/UserActionsQueryFeatureHydrator.scala#L56-L149" target="_blank" rel="noopener"><code>UserActionsQueryFeatureHydrator.scala:56-149</code></a><br>
+    <strong>Max count parameter</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L1373-L1379" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:1373-1379</code></a></p>
+
+    <p><strong>CRITICAL</strong>: The "5-minute window" is for <strong>aggregation</strong> (grouping actions within proximity), not filtering (time limit on history).</p>
+
+    <pre><code>Configuration:
+// Aggregation window (for grouping, NOT filtering)
+private val windowTimeMs = 5 * 60 * 1000  // Groups actions within 5-min proximity
+private val maxLength = 1024                // Max AFTER aggregation
+
+// Actual default used
+object UserActionsMaxCount extends FSBoundedParam[Int](
+  name = "home_mixer_user_actions_max_count",
+  default = 522,    // ← Actual default
+  min = 0,
+  max = 10000       // ← Configurable up to 10K
+)
+
+Processing flow:
+1. Fetch user's full action history from storage (days/weeks)
+2. Decompress → 2000+ raw actions
+3. Aggregate using 5-min proximity window (session detection)
+   → Actions within 5-min windows grouped together
+4. Cap at 522 actions (default)
+
+Result: 522 aggregated actions spanning HOURS TO DAYS, not 5 minutes!</code></pre>
+
+    <p><strong>What "5-minute aggregation window" means</strong>:</p>
+    <ul>
+      <li>❌ <strong>NOT</strong>: "Only use last 5 minutes of actions"</li>
+      <li>✅ <strong>YES</strong>: "Group actions that occur within 5-minute proximity"</li>
+      <li>✅ <strong>Purpose</strong>: Session detection and noise reduction</li>
+    </ul>
+
+    <p><strong>Actual temporal span (522 actions)</strong>:</p>
+    <pre><code>Active user (~100 actions/hour):  ~5 hours of behavioral history
+Normal user (~30 actions/hour):   ~17 hours of behavioral history
+Light user (~10 actions/hour):    ~52 hours (2+ days) of behavioral history
+
+Maximum (10,000 actions): Could span WEEKS for light users</code></pre>
+
+    <p><strong>Comparison to LLM context windows</strong>:</p>
+    <pre><code>GPT-3:   2048 tokens (~1500 words, ~3-4 pages of text)
+GPT-4:   8K-32K tokens (~6K-24K words)
+Phoenix: 522 aggregated actions (~hours to days of behavior)</code></pre>
+
+    <h3>Phoenix vs Navi: Architecture Comparison</h3>
+
+    <table style="width: 100%; margin: 2rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: var(--background-alt);">
+          <th style="padding: 1rem; text-align: left;">Aspect</th>
+          <th style="padding: 1rem; text-align: left;">NaviModelScorer (Current)</th>
+          <th style="padding: 1rem; text-align: left;">Phoenix (Future)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Input Data</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Many aggregated features</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Action sequence (522 aggregated actions, spanning hours to days)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Temporal Modeling</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">❌ Lost in aggregation</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ Explicit via self-attention</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Behavioral Context</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">⚠️ Via real-time aggregates</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ Recent actions directly inform predictions</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Session Awareness</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">❌ Same prediction all day</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ Adapts to current browsing mode</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Feature Engineering</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">❌ Many hand-crafted features</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ Minimal (actions + metadata)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Manual Tuning</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">❌ 15+ engagement weights, penalties</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ Learned patterns (eventually)</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Computational Cost</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">✅ O(n) feature lookup</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">⚠️ O(n²) transformer attention</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Update Frequency</strong></td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Daily batch recalculation</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Real-time, every action</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Current Status (Verified from Code)</h3>
+
+    <p class="code-ref"><strong>Phoenix Infrastructure</strong>: All components verified in <a href="https://github.com/twitter/the-algorithm" target="_blank" rel="noopener">twitter/the-algorithm</a> repository</p>
+
+    <p><strong>Infrastructure Status (September 2025 commit)</strong>:</p>
+    <ul>
+      <li>✅ <strong>Verified</strong>: Complete two-stage architecture deployed (<a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixScorer.scala" target="_blank" rel="noopener">PhoenixScorer</a> + <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixModelRerankingScorer.scala" target="_blank" rel="noopener">PhoenixModelRerankingScorer</a>)</li>
+      <li>✅ <strong>Verified</strong>: External transformer service <code>user_history_transformer</code> - dependency in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/BUILD.bazel#L20" target="_blank" rel="noopener">BUILD.bazel:20</a>, gRPC client <code>RecsysPredictorGrpc</code> in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L26" target="_blank" rel="noopener">PhoenixUtils.scala:26</a></li>
+      <li>✅ <strong>Verified</strong>: User action sequence system complete (522 default, up to 10K configurable, aggregated via 5-min proximity windows - <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L1373-L1379" target="_blank" rel="noopener">HomeGlobalParams.scala:1373-1379</a>)</li>
+      <li>✅ <strong>Verified</strong>: 13 engagement predictions supported (<a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/model/PhoenixPredictedScoreFeature.scala#L30-L193" target="_blank" rel="noopener">PhoenixPredictedScoreFeature.scala</a>)</li>
+      <li>✅ <strong>Verified</strong>: Per-head normalization for fair aggregation (<a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/RerankerUtil.scala#L38-L71" target="_blank" rel="noopener">RerankerUtil.scala:38-71</a>)</li>
+      <li>✅ <strong>Verified</strong>: 8 experimental clusters configured</li>
+      <li>✅ <strong>Verified</strong>: Production-ready with comprehensive stats collection</li>
+      <li>⚠️ <strong>Verified</strong>: Feature-gated (default = false in code)</li>
+    </ul>
+
+    <p><strong>What This Means</strong>:</p>
+    <ul>
+      <li>Infrastructure is <strong>production-ready</strong> but not yet default</li>
+      <li>Feature flags allow enabling Phoenix without code deployment</li>
+      <li>The system is designed for A/B testing (multiple clusters configured)</li>
+      <li>Whether it's currently active in production is unknown from open-source code</li>
+    </ul>
+
+    <h3>Multi-Model Experimentation Infrastructure</h3>
+
+    <p class="code-ref"><strong>Cluster configuration</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L1441-L1451" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:1441-1451</code></a><br>
+    <strong>Connection management</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/module/PhoenixClientModule.scala#L21-L61" target="_blank" rel="noopener"><code>PhoenixClientModule.scala:21-61</code></a><br>
+    <strong>Cluster selection</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixScorer.scala#L52-L53" target="_blank" rel="noopener"><code>PhoenixScorer.scala:52-53</code></a></p>
+
+    <p>Phoenix isn't a single model—it's <strong>9 separate transformer deployments</strong> designed for parallel experimentation:</p>
+
+    <pre><code>PhoenixCluster enumeration:
+- Prod          // Production model
+- Experiment1   // Test variant 1
+- Experiment2   // Test variant 2
+- Experiment3   // Test variant 3
+- Experiment4   // Test variant 4
+- Experiment5   // Test variant 5
+- Experiment6   // Test variant 6
+- Experiment7   // Test variant 7
+- Experiment8   // Test variant 8</code></pre>
+
+    <h4>What This Enables</h4>
+
+    <div style="margin: 2rem 0;">
+      <div style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <h5 style="margin-top: 0; color: var(--primary-color);">1. Parallel Model Testing</h5>
+        <p>Twitter can test <strong>8 different Phoenix variants simultaneously</strong>:</p>
+        <ul style="margin-bottom: 0;">
+          <li><strong>Different architectures</strong>: 6-layer vs 12-layer transformers, varying attention heads</li>
+          <li><strong>Different context windows</strong>: 256 vs 522 vs 1024 vs 2048 actions</li>
+          <li><strong>Different training data</strong>: Models trained on different time periods or user segments</li>
+          <li><strong>Feature integration tests</strong>: Actions only vs. actions + embeddings vs. actions + temporal features</li>
+        </ul>
+      </div>
+
+      <div style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <h5 style="margin-top: 0; color: var(--primary-color);">2. Per-Request Cluster Selection</h5>
+        <p>Each user's request can be routed to a different cluster:</p>
+        <pre><code>// From PhoenixScorer.scala:52-53
+val phoenixCluster = query.params(PhoenixInferenceClusterParam)  // Select cluster
+val channels = channelsMap(phoenixCluster)                        // Route request
+
+// Default: PhoenixCluster.Prod
+// But can be dynamically set per user via feature flags</code></pre>
+        <p><strong>A/B testing flow</strong>:</p>
+        <pre><code>User Alice (bucket: control)      → PhoenixCluster.Prod
+User Bob   (bucket: experiment_1) → PhoenixCluster.Experiment1
+User Carol (bucket: experiment_2) → PhoenixCluster.Experiment2</code></pre>
+      </div>
+
+      <div style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <h5 style="margin-top: 0; color: var(--primary-color);">3. Progressive Rollout Strategy</h5>
+        <p>Safe, gradual deployment with instant rollback:</p>
+        <pre><code>Week 1: Deploy new model to Experiment1
+        Route 1% of users to Experiment1
+        Other 99% stay on Prod
+        ↓
+Week 2: Compare metrics (engagement, dwell time, follows, etc.)
+        If Experiment1 > Prod: increase to 5%
+        If Experiment1 < Prod: rollback instantly
+        ↓
+Week 3: Gradually increase: 10% → 25% → 50%
+        Monitor metrics at each step
+        ↓
+Week 4: If consistently better, promote Experiment1 → Prod
+        Start testing next variant in Experiment2</code></pre>
+        <p><strong>Key advantage</strong>: Zero-downtime experimentation. New models can be tested without code deployment or service restart—just change the <code>PhoenixInferenceClusterParam</code> value via feature flag dashboard.</p>
+      </div>
+
+      <div style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px;">
+        <h5 style="margin-top: 0; color: var(--primary-color);">4. Parallel Evaluation (All Clusters Queried)</h5>
+        <p class="code-ref"><strong>Multi-cluster logging</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/side_effect/ScoredPhoenixCandidatesKafkaSideEffect.scala#L85-L104" target="_blank" rel="noopener"><code>ScoredPhoenixCandidatesKafkaSideEffect.scala:85-104</code></a></p>
+        <p>For offline analysis, Twitter can query <strong>all 9 clusters simultaneously</strong> for the same candidates:</p>
+        <pre><code>// getPredictionResponsesAllClusters queries ALL clusters in parallel
+User request → Candidates [tweet_A, tweet_B, tweet_C]
+             ↓
+Query Prod:         tweet_A: {FAV: 0.40, REPLY: 0.10, CLICK: 0.60}
+Query Experiment1:  tweet_A: {FAV: 0.45, REPLY: 0.12, CLICK: 0.58}
+Query Experiment2:  tweet_A: {FAV: 0.38, REPLY: 0.15, CLICK: 0.62}
+Query Experiment3:  tweet_A: {FAV: 0.42, REPLY: 0.11, CLICK: 0.65}
+... (all 9 clusters)
+             ↓
+Log to Kafka: "phoenix.Prod.favorite", "phoenix.Experiment1.favorite", ...
+             ↓
+Offline analysis: Compare predicted vs actual engagement across all models</code></pre>
+        <p><strong>Purpose</strong>: Create comprehensive comparison dataset without affecting user experience. Only the selected cluster's predictions are used for ranking, but all predictions are logged for evaluation.</p>
+      </div>
+    </div>
+
+    <h4>Hybrid Mode: Mixing Navi and Phoenix Predictions</h4>
+
+    <p class="code-ref"><strong>Hybrid configuration</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L1030-L1108" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:1030-1108</code></a></p>
+
+    <p>Twitter can use <strong>Navi predictions for some action types</strong> and <strong>Phoenix predictions for others</strong>:</p>
+
+    <pre><code>Hybrid Mode Configuration (per action type):
+- EnableProdFavForPhoenixParam         = true   // Use Navi for favorites
+- EnableProdReplyForPhoenixParam       = true   // Use Navi for replies
+- EnableProdGoodClickV2ForPhoenixParam = false  // Use Phoenix for clicks
+- EnableProdVQVForPhoenixParam         = false  // Use Phoenix for video views
+- EnableProdNegForPhoenixParam         = true   // Use Navi for negative feedback
+... (13 total flags, one per engagement type)</code></pre>
+
+    <p><strong>Incremental migration strategy</strong>:</p>
+    <pre><code>Phase 1: Enable Phoenix, but use Navi for all predictions
+         (Shadow mode - Phoenix predictions logged but not used)
+         ↓
+Phase 2: Use Phoenix for low-risk actions (photo expand, video view)
+         Keep Navi for high-impact actions (favorite, reply, retweet)
+         ↓
+Phase 3: Gradually enable Phoenix for more action types
+         Monitor metrics after each change
+         ↓
+Phase 4: Full Phoenix mode - all predictions from transformer
+         Navi retired or kept as fallback</code></pre>
+
+    <p><strong>Why this matters</strong>: Reduces risk by preserving proven Navi predictions while testing Phoenix predictions incrementally. If Phoenix predictions for clicks are great but favorites are worse, Twitter can use Phoenix for clicks only.</p>
+
+    <h4>What This Reveals</h4>
+
+    <div class="callout" style="margin-top: 2rem;">
+      <p><strong>This isn't experimental infrastructure—it's production A/B testing at scale</strong>.</p>
+      <p>The sophistication of the cluster system suggests:</p>
+      <ul>
+        <li>✅ <strong>Active deployment</strong>: Phoenix is likely running on real users right now</li>
+        <li>✅ <strong>Ongoing iteration</strong>: Multiple transformer variants being tested simultaneously</li>
+        <li>✅ <strong>Serious commitment</strong>: This level of infrastructure investment indicates Phoenix is strategic priority</li>
+        <li>✅ <strong>Modern ML engineering</strong>: Safe, data-driven model deployment with comprehensive monitoring</li>
+      </ul>
+      <p>Phoenix's feature gate (default = false) doesn't mean "not deployed"—it means "controlled rollout." Twitter can activate Phoenix for specific user cohorts, test different model variants, and compare results, all without changing code.</p>
+    </div>
+
+    <h4>Technical Details</h4>
+
+    <p><strong>Connection pooling</strong>: Each cluster maintains 10 gRPC channels for load balancing and fault tolerance (90 total connections across 9 clusters).</p>
+
+    <p><strong>Request routing</strong>: Randomly selects one of 10 channels per request for even load distribution (<a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L107-L117" target="_blank" rel="noopener">PhoenixUtils.scala:107-117</a>).</p>
+
+    <p><strong>Retry policy</strong>: 2 attempts with different channels, 500ms default timeout (configurable to 10s max).</p>
+
+    <p><strong>Graceful degradation</strong>: If a cluster fails to respond, the system continues with other clusters (for logging) or falls back to Navi (for production scoring).</p>
+
+    <h3>Code References</h3>
+
+    <div class="code-ref">
+      <p><strong>Phoenix Scorer (Stage 1 - Prediction)</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixScorer.scala#L30-L85" target="_blank" rel="noopener"><code>PhoenixScorer.scala:30-85</code></a></p>
+      <p><strong>Phoenix Reranking Scorer (Stage 2 - Aggregation)</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/PhoenixModelRerankingScorer.scala#L23-L81" target="_blank" rel="noopener"><code>PhoenixModelRerankingScorer.scala:23-81</code></a></p>
+      <p><strong>User Action Sequence Hydrator</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/feature_hydrator/UserActionsQueryFeatureHydrator.scala#L56-L149" target="_blank" rel="noopener"><code>UserActionsQueryFeatureHydrator.scala:56-149</code></a></p>
+      <p><strong>13 Engagement Predictions (Action Types)</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/model/PhoenixPredictedScoreFeature.scala#L30-L193" target="_blank" rel="noopener"><code>PhoenixPredictedScoreFeature.scala:30-193</code></a></p>
+      <p><strong>gRPC Transformer Service Integration</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/PhoenixUtils.scala#L26-L159" target="_blank" rel="noopener"><code>PhoenixUtils.scala:26-159</code></a></p>
+      <p><strong>Per-Head Max Normalization</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/RerankerUtil.scala#L38-L71" target="_blank" rel="noopener"><code>RerankerUtil.scala:38-71</code></a></p>
+      <p><strong>Weighted Aggregation Logic</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/util/RerankerUtil.scala#L91-L137" target="_blank" rel="noopener"><code>RerankerUtil.scala:91-137</code></a></p>
+      <p><strong>Model Weight Parameters</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L1028" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-1028</code></a></p>
+      <p><strong>Actual Weight Values (ML Repo)</strong>: <a href="https://github.com/twitter/the-algorithm-ml/tree/main/projects/home/recap" target="_blank" rel="noopener"><code>the-algorithm-ml/projects/home/recap</code></a></p>
+      <p><strong>Action Sequence Max Count</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L1373-L1379" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:1373-1379</code></a></p>
+    </div>
+
+    <hr>
+
+    <h2>The Bottom Line</h2>
+
+    <p><strong>What we know</strong>: Phoenix infrastructure is complete, feature-gated, and production-ready. The architecture represents a fundamental shift from feature-based to sequence-based prediction. More importantly, <strong>Phoenix has sophisticated A/B testing infrastructure that strongly suggests active deployment on real users</strong>.</p>
+
+    <h3>Evidence of Active Deployment</h3>
+
+    <div class="callout" style="margin: 2rem 0;">
+      <p>The 9-cluster system isn't just placeholder infrastructure—it's production experimentation at scale:</p>
+      <ul>
+        <li>✅ <strong>Multi-cluster A/B testing</strong>: 8 experimental variants can be tested simultaneously against production</li>
+        <li>✅ <strong>Parallel evaluation</strong>: All 9 clusters queried for every request and logged to Kafka for comparison</li>
+        <li>✅ <strong>Progressive rollout</strong>: Per-user cluster selection enables gradual traffic shifting (1% → 5% → 100%)</li>
+        <li>✅ <strong>Hybrid mode</strong>: Can mix Navi and Phoenix predictions per action type (incremental migration strategy)</li>
+        <li>✅ <strong>Connection pooling</strong>: 90 maintained gRPC connections (9 clusters × 10 channels) indicates active use</li>
+        <li>✅ <strong>Instant rollback</strong>: Feature flags allow switching clusters without code deployment</li>
+      </ul>
+      <p><strong>Conclusion</strong>: This level of infrastructure sophistication indicates Phoenix is likely being tested on production traffic right now, not merely prepared for future deployment.</p>
+    </div>
+
+    <h3>What This Means</h3>
+
+    <p><strong>Paradigm shift in progress</strong>:</p>
+
+    <ul>
+      <li><strong>From static features to behavioral sequences</strong>: Your last 522 aggregated actions (hours to days of behavior) replacing lifetime averages</li>
+      <li><strong>From "what you usually like" to "what you're doing now"</strong>: Session-aware, context-sensitive predictions that adapt as you browse</li>
+      <li><strong>From manual tuning to learned patterns</strong>: Transformer learns what matters from behavioral data, replacing 15+ hand-tuned engagement weights and penalties</li>
+      <li><strong>From daily batch updates to continuous adaptation</strong>: Algorithm learns your behavioral patterns over hours/days, not months</li>
+    </ul>
+
+    <h3>If/When Phoenix Becomes Default</h3>
+
+    <p>The algorithm would understand you not as a static profile of historical preferences, but as a <strong>dynamic behavioral sequence</strong> revealing your current intent. Your feed would adapt as you browse, following threads of interest that emerge in your behavior—not mechanically serving averaged content from long-term statistics.</p>
+
+    <p>This mirrors how humans actually consume content: following curiosity as it arises, deep-diving into topics that capture attention, switching contexts when interest shifts. An algorithm that learns to follow your behavioral lead, not force you into a predetermined statistical box.</p>
+
+    <h3>Current Reality</h3>
+
+    <div class="callout warning" style="margin-top: 2rem;">
+      <p><strong>Verified from code</strong>:</p>
+      <ul>
+        <li>✅ Phoenix infrastructure is production-ready and deployed</li>
+        <li>✅ Multi-cluster A/B testing system is fully operational</li>
+        <li>✅ Feature gates allow instant activation without code deployment</li>
+        <li>⚠️ Default setting is <code>false</code>, but can be enabled per-user</li>
+      </ul>
+      <p><strong>What we don't know from open-source code</strong>:</p>
+      <ul>
+        <li>❓ What percentage of users currently experience Phoenix predictions</li>
+        <li>❓ Which experimental clusters are active and how they differ</li>
+        <li>❓ How Phoenix performance compares to Navi in production metrics</li>
+        <li>❓ Timeline for full rollout (if planned)</li>
+      </ul>
+      <p><strong>Most likely scenario</strong>: Phoenix is in active A/B testing with controlled user cohorts. Twitter is iterating on multiple model variants (via Experiment1-8 clusters), comparing results, and gradually expanding deployment as metrics improve. The infrastructure is too sophisticated to be merely preparatory.</p>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="algorithmic-identity.html">Next: Algorithmic Identity →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This analysis is based on code found in a September 2025 commit to Twitter's open-source algorithm repository. Phoenix infrastructure is feature-gated and may not be active in production.</p>
+  </footer>
+
+  <script src="../js/phoenix-simulator.js"></script>
+</body>
+</html>

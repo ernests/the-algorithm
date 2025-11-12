@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How X's Algorithm Really Works</title>
+  <meta name="description" content="A code-based investigation of X's open-source recommendation algorithm">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="#findings">Key Findings</a>
+        <a href="#interactives">Interactive Explorations</a>
+        <a href="parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>How Twitter's Algorithm Really Works</h1>
+    <p class="lead">We read X's open-source algorithm. Here's what the code actually says.</p>
+
+    <hr>
+
+    <h2>What We Found</h2>
+
+    <p>In March 2023, X (then Twitter) open-sourced their recommendation algorithm. We analyzed the implementation—reading thousands of lines of Scala, examining ML model weights, and tracing data flows through the pipeline. Every claim below is backed by specific code references you can verify yourself.</p>
+
+    <div class="callout">
+      <p><strong>Our approach</strong>: No speculation. No reverse engineering. Just reading the actual implementation and documenting what it does.</p>
+    </div>
+
+    <hr>
+
+    <h2 id="findings">Top 5 Most Interesting Findings</h2>
+
+    <!-- Finding 1: Favorites Paradox -->
+    <div class="finding-card">
+      <h3>🤯 The Favorites Paradox</h3>
+
+      <p><strong>The Finding</strong>: Favorites (likes) have the <em>lowest</em> positive weight despite being the most visible metric.</p>
+
+      <pre><code>Favorite (like):                0.5 weight
+Reply:                          13.5 weight (27x more valuable)
+Reply with Author Engagement:   75.0 weight (150x more valuable!)</code></pre>
+
+      <p><strong>Why It Matters</strong>: The most tracked engagement type has the least algorithmic value. Tweets that drive conversation (replies) vastly outrank tweets that drive agreement (likes). This means controversial content systematically outranks agreeable content.</p>
+
+      <p><strong>Consequence</strong>: One reply with author engagement = 150 likes in algorithmic value.</p>
+
+      <div class="callout warning" style="margin-top: 1rem;">
+        <p><strong>⚠️ Weight Values</strong>: The open-source code defines weights as configurable parameters (FSBoundedParam with default = 0.0). The actual production weight values shown here come from X's ML training repository and represent their documented configuration.</p>
+      </div>
+
+      <p class="code-ref">
+        <strong>Parameter definitions</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L930" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-930</code></a><br>
+        <strong>Production weight values</strong>: <a href="https://github.com/twitter/the-algorithm-ml/tree/main/projects/home/recap" target="_blank" rel="noopener"><code>the-algorithm-ml/projects/home/recap</code></a>
+      </p>
+
+      <p><strong>Explore</strong>: <a href="interactive/engagement-calculator.html">Engagement Calculator →</a></p>
+    </div>
+
+    <!-- Finding 2: Conflict is Emergent -->
+    <div class="finding-card">
+      <h3>🔥 Conflict is Emergent, Not Intentional</h3>
+
+      <p><strong>The Finding</strong>: The algorithm cannot distinguish between:</p>
+      <ul>
+        <li>Agreement reply vs disagreement reply</li>
+        <li>Supportive engagement vs hostile engagement</li>
+        <li>Productive conversation vs rage bait</li>
+      </ul>
+
+      <p>All replies get the same weight (13.5) regardless of sentiment or tone.</p>
+
+      <p><strong>Why It Matters</strong>: Conflict gets amplified not because X wants it, but because <strong>the algorithm is blind to it</strong>. This is a design limitation, not malicious intent. The code has no sentiment analysis, no toxicity detection in the scoring model—just raw engagement counts.</p>
+
+      <p><strong>Consequence</strong>: Controversial takes (50 angry replies) score higher than helpful explanations (50 supportive replies) despite identical engagement volume.</p>
+
+      <p class="code-ref">
+        <strong>Code</strong>: No sentiment analysis anywhere in ML scoring pipeline (<code>NaviModelScorer.scala</code>, <code>HomeGlobalParams.scala</code>)
+      </p>
+
+      <p><strong>Explore</strong>: <a href="interactive/engagement-calculator.html">Engagement Calculator →</a></p>
+    </div>
+
+    <!-- Finding 3: Multiplicative Scoring -->
+    <div class="finding-card">
+      <h3>📊 Multiplicative Scoring = Mathematical Echo Chambers</h3>
+
+      <p><strong>The Finding</strong>: Tweet scores use <strong>multiplication</strong>, not addition:</p>
+
+      <pre><code>score = baseScore × clusterInterest</code></pre>
+
+      <p>This single design choice means any imbalance compounds over time.</p>
+
+      <p><strong>Why It Matters</strong>: Echo chambers aren't a bug—they're mathematical inevitability. If you're 60% interested in AI and 40% in cooking, multiplicative scoring gives AI tweets a permanent 50% scoring advantage. This advantage means you see more AI → engage more with AI → interest increases → advantage grows.</p>
+
+      <p><strong>Example</strong>:</p>
+      <pre><code>AI tweet (quality 0.9):      0.9 × 0.60 = 0.54
+Cooking tweet (quality 0.9): 0.9 × 0.40 = 0.36
+
+Same quality, 50% score difference!</code></pre>
+
+      <p><strong>Consequence</strong>: The algorithm concentrates your interests over time through reinforcement loops. Balanced interests are unstable—any imbalance (even 51/49) drifts toward concentration.</p>
+
+      <p class="code-ref">
+        <strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:94</code></a> → <code>score * sourceClusterScore</code>
+      </p>
+
+      <p><strong>Explore</strong>: <a href="interactive/invisible-filter.html">Invisible Filter →</a> | <a href="interactive/reinforcement-loop.html">Reinforcement Loop →</a></p>
+    </div>
+
+    <!-- Finding 4: Verified Multiplier -->
+    <div class="finding-card">
+      <h3>👑 Verified Accounts Get 100x Multiplier</h3>
+
+      <p><strong>The Finding</strong>: Verified status = 100x reputation boost in the TweepcredGraph system.</p>
+
+      <pre><code>if (isVerified) 100
+else { /* calculate based on followers, PageRank, etc. */ }</code></pre>
+
+      <p><strong>Why It Matters</strong>: This isn't just a badge—it's a massive algorithmic advantage. Combined with other structural benefits (follower count, PageRank, follow ratio scoring), large verified accounts have a <strong>348:1 reach advantage</strong> over small accounts posting identical content.</p>
+
+      <p><strong>Consequence</strong>: The platform has algorithmic aristocracy built into its architecture. Not all accounts are treated equally—some start with order-of-magnitude advantages.</p>
+
+      <p class="code-ref">
+        <strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/graph/batch/job/tweepcred/UserMass.scala#L40-L41" target="_blank" rel="noopener"><code>UserMass.scala:40-41</code></a>
+      </p>
+
+      <p><strong>Explore</strong>: <a href="interactive/algorithmic-aristocracy.html">Algorithmic Aristocracy →</a></p>
+    </div>
+
+    <!-- Finding 5: Not Interested Nuclear -->
+    <div class="finding-card">
+      <h3>☢️ "Not Interested" is Nuclear</h3>
+
+      <p><strong>The Finding</strong>: A single "not interested" click triggers:</p>
+      <ul>
+        <li><strong>0.2x multiplier</strong> (80% penalty immediately)</li>
+        <li><strong>140-day linear recovery</strong> (penalty slowly fades over 5 months)</li>
+        <li><strong>Author-level effect</strong> (affects ALL tweets from that author)</li>
+      </ul>
+
+      <pre><code>Day 0:   0.2x multiplier (nearly invisible)
+Day 70:  0.6x multiplier (still suppressed)
+Day 140: 1.0x multiplier (penalty expires)</code></pre>
+
+      <p><strong>Why It Matters</strong>: This is your most powerful tool as a user. One click removes an author from <strong>your feed</strong> for 5 months. This is personal to you and doesn't aggregate globally.</p>
+
+      <p><strong>Note</strong>: Content that the ML model predicts will receive negative feedback (based on historical patterns) gets penalized globally with -74.0 weight. Reports have an even more severe predicted penalty (-369.0 weight).</p>
+
+      <p class="code-ref">
+        <strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/functional_component/scorer/FeedbackFatigueScorer.scala#L38" target="_blank" rel="noopener"><code>FeedbackFatigueScorer.scala:38</code></a> → <code>val DurationForDiscounting = 140.days</code>
+      </p>
+
+      <p><strong>Explore</strong>: <a href="interactive/engagement-calculator.html">Engagement Calculator →</a></p>
+    </div>
+
+    <hr>
+
+    <h2>Other Notable Code-Backed Findings</h2>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+
+      <div class="finding-card">
+        <h4>⏰ Weekly Batch Updates</h4>
+        <p>Your InterestedIn profile (which clusters you belong to) updates every 7 days via batch job, not real-time. Your feed is stuck with a week-old view of your interests.</p>
+        <p class="code-ref"><strong>Code</strong>: <code>InterestedInFromKnownFor.scala:59</code> → <code>Days(7)</code></p>
+      </div>
+
+      <div class="finding-card">
+        <h4>🚧 Out-of-Network Penalty</h4>
+        <p>Tweets from people you don't follow get a 0.75x multiplier (25% score reduction). Breaking out of your network requires 33% more engagement to compete.</p>
+        <p class="code-ref"><strong>Code</strong>: <code>RescoringFactorProvider.scala:45-57</code></p>
+      </div>
+
+      <div class="finding-card">
+        <h4>📝 Author Diversity Decay</h4>
+        <p>Multiple tweets from same author get exponential penalty: 1st tweet (100%), 2nd tweet (62.5%), 3rd tweet (43.75%). Posting more = severe diminishing returns.</p>
+        <p class="code-ref"><strong>Code</strong>: <code>AuthorBasedListwiseRescoringProvider.scala:54</code></p>
+      </div>
+
+      <div class="finding-card">
+        <h4>🥶 TwHIN Cold Start Problem</h4>
+        <p>Tweets need ≥16 engagements to get TwHIN embeddings (used for recommendations). Below threshold = zero-out. Small accounts locked out of this candidate source.</p>
+        <p class="code-ref"><strong>Code</strong>: <code>TwhinEmbeddingsStore.scala:48</code></p>
+      </div>
+
+      <div class="finding-card">
+        <h4>🗺️ Sparse Cluster Assignment</h4>
+        <p>~145,000 total clusters exist, but you're only assigned to 10-20 of them (default). Highly sparse representation of your interests.</p>
+        <p class="code-ref"><strong>Code</strong>: <code>InterestedInFromKnownFor.scala:148</code> → <code>maxClustersPerUser = 20</code></p>
+      </div>
+
+    </div>
+
+    <hr>
+
+    <h2 id="interactives">Interactive Explorations</h2>
+
+    <p>Experience how the algorithm works through interactive demos. Each one lets you experiment with the actual mechanics found in the code.</p>
+
+    <h3>Understanding The Pipeline</h3>
+
+    <div class="finding-card">
+      <h3><a href="interactive/pipeline-explorer.html">🔍 Pipeline Explorer</a></h3>
+      <p>Follow a tweet through all 5 algorithmic stages from posting to your timeline. See exactly what happens at each stage with real score calculations, filters, and penalties.</p>
+    </div>
+
+    <div class="finding-card">
+      <h3><a href="interactive/engagement-calculator.html">🧮 Engagement Calculator</a></h3>
+      <p>Calculate tweet scores yourself. Adjust engagement probabilities and see how replies (13.5 weight) vastly outweigh likes (0.5 weight).</p>
+    </div>
+
+    <h3>Understanding Your Algorithmic Identity</h3>
+
+    <div class="finding-card">
+      <h3><a href="interactive/cluster-explorer.html">🗺️ Cluster Explorer</a></h3>
+      <p>Discover which of ~145,000 algorithmic communities you belong to based on your follows and engagement. See how X groups users into interest clusters.</p>
+    </div>
+
+    <div class="finding-card">
+      <h3><a href="interactive/algorithmic-identity.html">🎭 Algorithmic Identity Builder</a></h3>
+      <p>Understand your dual algorithmic profiles: InterestedIn (consumer) vs Producer Embeddings (creator). See how clusters + engagement create your personalized identity (updates weekly!).</p>
+    </div>
+
+    <h3>Understanding Filter Bubbles & Echo Chambers</h3>
+
+    <div class="finding-card">
+      <h3><a href="interactive/journey-simulator.html">🚀 Journey Simulator</a></h3>
+      <p>Model how your interests might drift over time based on multiplicative scoring mechanics. See the reinforcement loop in action.</p>
+    </div>
+
+    <div class="finding-card">
+      <h3><a href="interactive/invisible-filter.html">👥 Invisible Filter Demo</a></h3>
+      <p>See how you and a friend see completely different rankings for the same tweets. Multiplicative scoring creates personalized realities.</p>
+    </div>
+
+    <div class="finding-card">
+      <h3><a href="interactive/reinforcement-loop.html">🔁 Reinforcement Loop Visualizer</a></h3>
+      <p>Step through the feedback loop week by week. Watch how seeing more AI content → engaging more → seeing even more creates drift through multiplicative mechanics.</p>
+    </div>
+
+    <h3>Understanding Structural Advantages</h3>
+
+    <div class="finding-card">
+      <h3><a href="interactive/algorithmic-aristocracy.html">👑 Algorithmic Aristocracy</a></h3>
+      <p>Explore how follower count creates different algorithmic rules. Verified accounts get 100x multipliers, small accounts hit hard barriers. See the four mechanisms that multiply together for 348:1 advantage.</p>
+    </div>
+
+    <h3>Understanding Next-Generation Systems</h3>
+
+    <div class="finding-card">
+      <h3><a href="interactive/phoenix-sequence-prediction.html">🔮 Phoenix: Behavioral Prediction (Likely Active)</a></h3>
+      <p>X's next-generation transformer-based system models your last 522 actions (hours to days of behavior) to predict what you'll do next. <strong>Evidence suggests active A/B testing</strong>: 9-cluster deployment with parallel evaluation, progressive rollout infrastructure, and hybrid mode for incremental migration. This represents a paradigm shift from static features to behavioral sequences.</p>
+    </div>
+
+    <hr>
+
+    <h2>Our Approach</h2>
+
+    <p><strong>Objective Evidence</strong>: Every claim backed by:</p>
+    <ul>
+      <li><strong>File path</strong> - Exact location in codebase</li>
+      <li><strong>Line numbers</strong> - Specific implementation</li>
+      <li><strong>Code snippets</strong> - What it actually does</li>
+      <li><strong>Explanation</strong> - How the mechanism works</li>
+      <li><strong>Consequences</strong> - What it means for users and creators</li>
+    </ul>
+
+    <p><strong>Verifiable</strong>: The algorithm is <a href="https://github.com/twitter/the-algorithm" target="_blank" rel="noopener">open source</a>. You can check our work.</p>
+
+    <p><strong>Interactive</strong>: We built simulators and calculators so you can experience the mechanics hands-on, not just read about them.</p>
+
+    <hr>
+
+    <h2>Who This Is For</h2>
+
+    <ul>
+      <li><strong>Users</strong> wondering why their feed looks the way it does</li>
+      <li><strong>Creators</strong> optimizing for reach and engagement</li>
+      <li><strong>Researchers</strong> studying recommendation algorithms and their societal effects</li>
+      <li><strong>Policy makers</strong> understanding algorithmic amplification</li>
+      <li><strong>Anyone curious</strong> about how algorithmic systems shape online discourse</li>
+    </ul>
+
+    <hr>
+
+    <h2>About This Investigation</h2>
+
+    <p>This analysis was conducted by reading X's open-source algorithm code (released March 2023). All findings are based on the actual implementation, not speculation or reverse engineering.</p>
+
+    <p><strong>Repository</strong>: <a href="https://github.com/twitter/the-algorithm" target="_blank" rel="noopener">github.com/twitter/the-algorithm</a></p>
+
+    <p><strong>Methodology</strong>: We read thousands of lines of Scala, traced data flows through pipelines, examined ML model configurations, and documented every mechanism with file paths and line numbers. Our research notes contain detailed analysis with step-by-step code walkthroughs.</p>
+
+    <p><strong>Last Updated</strong>: November 2025</p>
+
+    <hr>
+
+    <div class="callout">
+      <p><strong>Key Insight</strong>: The algorithm is not neutral. It is designed for engagement, not for truth, diversity, or societal health. Understanding how it works is the first step to using it consciously rather than being shaped by it.</p>
+    </div>
+
+  </main>
+
+  <footer>
+    <p>Questions or corrections? Open an issue on <a href="https://github.com/twitter/the-algorithm" target="_blank" rel="noopener">GitHub</a>.</p>
+    <p>This is a living document based on X's March 2023 open-source algorithm.</p>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference & Glossary - How Twitter's Algorithm Really Works</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How Twitter's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="reference.html"><strong>Reference</strong></a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Reference & Glossary</h1>
+
+    <p><strong>Technical terminology, code references, and verification guide for the interactive documentation</strong></p>
+
+    <div class="callout" style="margin: 2rem 0;">
+      <h3 style="margin-top: 0;">Contents</h3>
+
+      <h4>Glossary: Algorithm Components</h4>
+      <ul style="column-count: 2; column-gap: 2rem;">
+        <li><a href="#heavy-ranker">Heavy Ranker</a></li>
+        <li><a href="#light-ranker">Light Ranker</a></li>
+        <li><a href="#twhin">TwHIN</a></li>
+        <li><a href="#simclusters">SimClusters</a></li>
+        <li><a href="#uteg">UTEG</a></li>
+        <li><a href="#graphjet">GraphJet</a></li>
+        <li><a href="#earlybird">Earlybird</a></li>
+        <li><a href="#real-graph">Real Graph</a></li>
+        <li><a href="#tweet-mixer">Tweet Mixer</a></li>
+        <li><a href="#navi">Navi</a></li>
+        <li><a href="#product-mixer">Product Mixer</a></li>
+        <li><a href="#masknet">MaskNet</a></li>
+        <li><a href="#fsboundedparam">FSBoundedParam</a></li>
+        <li><a href="#tweepcred">TweepCred</a></li>
+        <li><a href="#frs">FRS</a></li>
+        <li><a href="#user-signal-service">User Signal Service</a></li>
+      </ul>
+
+      <h4>Reference Sections</h4>
+      <ul>
+        <li><a href="#code-evolution">Code Evolution Timeline</a> - March 2023 vs September 2025 releases</li>
+        <li><a href="#verification">How to Verify Our Claims</a> - Step-by-step verification guide</li>
+        <li><a href="#file-index">File Index</a> - Where to find specific implementations</li>
+        <li><a href="#further-reading">Further Reading</a> - Official sources and academic background</li>
+      </ul>
+    </div>
+
+    <hr>
+
+    <h2 id="glossary">Glossary: Building Blocks of the Algorithm</h2>
+
+    <p>The Twitter algorithm is built from many interconnected systems. Here's what each piece does, explained intuitively rather than technically.</p>
+
+    <div class="callout">
+      <p><strong>Reading this glossary</strong>: Each entry explains what the system does and <em>why</em> it exists. Think of these as tools in a toolbox - each serves a specific purpose in the larger recommendation pipeline.</p>
+    </div>
+
+    <h3 id="heavy-ranker">Heavy Ranker</h3>
+
+    <p><strong>What it is</strong>: The main machine learning model that scores tweets.</p>
+
+    <p><strong>How to think about it</strong>: Imagine a judge at a competition who can predict 15 different ways the audience might react to each performance. The Heavy Ranker looks at a tweet and predicts: "There's a 5% chance you'll like this, 2% chance you'll reply, 0.1% chance you'll click 'not interested'," and so on. Each prediction gets a weight (replies are worth 13.5x more than likes), and the weighted sum becomes the tweet's final score.</p>
+
+    <p><strong>Why it exists</strong>: Scoring thousands of tweets per user is computationally expensive. The Heavy Ranker is "heavy" because it's thorough - it uses a neural network with ~48 million parameters to make highly accurate predictions. But you can only afford to run something this expensive on a pre-filtered set of candidates.</p>
+
+    <p><strong>Architecture</strong>: Uses MaskNet (see below) - a special neural network design that predicts all 15 engagement types simultaneously while sharing knowledge between predictions.</p>
+
+    <p class="code-ref"><strong>Code</strong>: External repo <a href="https://github.com/twitter/the-algorithm/blob/main/the-algorithm-ml/projects/home/recap/" target="_blank" rel="noopener"><code>recap</code></a></p>
+    <p class="code-ref"><strong>Weights</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L1028" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-1028</code></a></p>
+
+    <h3 id="light-ranker">Light Ranker</h3>
+
+    <p><strong>What it is</strong>: A faster, simpler scoring model embedded in the search index.</p>
+
+    <p><strong>How to think about it</strong>: If Heavy Ranker is a detailed film critic analyzing every aspect of a movie, Light Ranker is a quick star rating. It's a basic logistic regression model that runs <em>inside</em> the search index (Earlybird) to quickly score millions of tweets and pick the top few thousand worth sending to Heavy Ranker.</p>
+
+    <p><strong>Why it exists</strong>: You can't run Heavy Ranker on a billion tweets - it would take too long and cost too much. Light Ranker is the bouncer that gets the candidate pool down from millions to thousands in milliseconds.</p>
+
+    <p><strong>Trade-off</strong>: Fast but less accurate. Uses only ~20 features vs Heavy Ranker's ~6,000 features.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/python/twitter/deepbird/projects/timelines/scripts/models/earlybird/" target="_blank" rel="noopener"><code>earlybird</code></a></p>
+
+    <h3 id="twhin">TwHIN (Twitter Heterogeneous Information Network)</h3>
+
+    <p><strong>What it is</strong>: A giant knowledge graph that represents everything on Twitter (users, tweets, topics, communities) as connected points in mathematical space.</p>
+
+    <p><strong>How to think about it</strong>: Imagine a 3D map where every user is a point, every tweet is a point, and every topic is a point. Similar things are close together. If you like sci-fi movies and engage with certain accounts, you'll be positioned near other sci-fi fans. TwHIN can then say "show this person tweets from that nearby cluster they haven't seen yet."</p>
+
+    <p><strong>Why it exists</strong>: Finding relevant content from people you don't follow is hard. TwHIN solves this by representing similarity mathematically - it can find "users similar to you" or "tweets similar to what you engage with" by measuring geometric distance in this abstract space.</p>
+
+    <p><strong>Heterogeneous means</strong>: The graph includes different types of things (users, tweets, topics, hashtags) all in one unified mathematical representation.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/recos/" target="_blank" rel="noopener"><code>recos</code></a> and related embeddings</p>
+
+    <h3 id="simclusters">SimClusters</h3>
+
+    <p><strong>What it is</strong>: A system that divides X into ~145,000 interest-based communities and represents both users and tweets as membership in these communities.</p>
+
+    <p><strong>How to think about it</strong>: Instead of saying "Alice follows Bob and Carol," SimClusters says "Alice is 60% in the AI cluster, 30% in the cooking cluster, and 10% in the gardening cluster." Tweets are described the same way. Then matching is simple: show people tweets from clusters they belong to.</p>
+
+    <p><strong>Why it exists</strong>: Communities are more stable than individual follow relationships, and they're much more efficient to compute with. Rather than comparing you to millions of individual users, the algorithm can compare your cluster membership to tweet cluster scores.</p>
+
+    <p><strong>The gravitational pull effect</strong>: Because scoring uses multiplication (<code>your_cluster_score × tweet_cluster_score</code>), your strongest cluster keeps getting stronger. If you're 60% AI and 40% cooking today, engaging slightly more with AI content makes you 65% AI, which makes AI content score even higher, which makes you engage more with AI... and six months later you're 76% AI.</p>
+
+    <p><strong>How clusters are created</strong>: X analyzes the follow graph using community detection algorithms to discover ~145,000 natural communities. Your interests (InterestedIn) are calculated from your engagement history with a 100-day half-life, updated weekly. See the <a href="../interactive/cluster-explorer.html">Cluster Explorer</a> interactive to understand how you're categorized.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/" target="_blank" rel="noopener"><code>simclusters_v2</code></a></p>
+
+    <h3 id="uteg">UTEG (User-Tweet-Entity-Graph)</h3>
+
+    <p><strong>What it is</strong>: An in-memory graph database that tracks recent engagement patterns to make real-time recommendations.</p>
+
+    <p><strong>How to think about it</strong>: UTEG is like a short-term memory system. It remembers "in the last 24 hours, people similar to you engaged with these tweets." It's built using GraphJet (see below), which keeps a live graph in RAM that can answer queries in milliseconds.</p>
+
+    <p><strong>Why it exists</strong>: Some recommendation systems (like SimClusters) are based on long-term patterns and update slowly. UTEG captures what's happening <em>right now</em> - trending topics, breaking news, viral content. It provides the "fresh" recommendations that complement the more stable systems.</p>
+
+    <p><strong>Graph traversal</strong>: To find recommendations, UTEG does graph walks: "You liked tweet A → Other people who liked A also liked B → Show you tweet B."</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/recos/user_tweet_entity_graph/" target="_blank" rel="noopener"><code>user_tweet_entity_graph</code></a></p>
+
+    <h3 id="graphjet">GraphJet</h3>
+
+    <p><strong>What it is</strong>: An in-memory graph database optimized for real-time recommendations.</p>
+
+    <p><strong>How to think about it</strong>: A traditional database stores data on disk and reads it when needed (slow). GraphJet keeps the entire graph in RAM (fast) and is optimized for the specific types of queries Twitter needs: "given this user, find related tweets" or "given this tweet, find similar users."</p>
+
+    <p><strong>Why it exists</strong>: Speed. When you refresh your timeline, Twitter has ~200 milliseconds to gather candidates, score them, and serve the results. GraphJet can traverse millions of graph edges in memory in just a few milliseconds.</p>
+
+    <p><strong>Trade-off</strong>: RAM is expensive and limited, so GraphJet only stores recent data (typically last 24-48 hours of engagement).</p>
+
+    <p class="code-ref"><strong>Code</strong>: Open-sourced separately at <a href="https://github.com/twitter/the-algorithm/blob/main/github.com/twitter/GraphJet" target="_blank" rel="noopener"><code>GraphJet</code></a></p>
+
+    <h3 id="earlybird">Earlybird</h3>
+
+    <p><strong>What it is</strong>: Twitter's real-time search index - a specialized database optimized for finding tweets by keywords, authors, or engagement patterns.</p>
+
+    <p><strong>How to think about it</strong>: When you search for "machine learning" on Twitter, Earlybird finds matching tweets in milliseconds even though there are billions of tweets. For the recommendation algorithm, Earlybird serves as the main source of in-network candidates (tweets from people you follow).</p>
+
+    <p><strong>Why it exists</strong>: Traditional databases aren't fast enough for Twitter's scale. Earlybird is custom-built for one purpose: extremely fast tweet retrieval with ranking. It includes the Light Ranker (see above) built directly into the index so it can return already-scored candidates.</p>
+
+    <p><strong>Real-time means</strong>: New tweets are indexed within seconds, so Earlybird always has the latest content.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/java/com/twitter/search/" target="_blank" rel="noopener"><code>search</code></a></p>
+
+    <h3 id="real-graph">Real Graph</h3>
+
+    <p><strong>What it is</strong>: A system that predicts the strength of relationships between users based on interaction patterns, not just follow relationships.</p>
+
+    <p><strong>How to think about it</strong>: You might follow 500 people, but you only regularly interact with 20 of them. Real Graph identifies those 20 by tracking who you reply to, whose profiles you visit, whose tweets you engage with. It creates a weighted graph where edge strength = relationship strength.</p>
+
+    <p><strong>Why it exists</strong>: Following someone is a weak signal. The algorithm needs to know who you <em>actually</em> care about. Real Graph provides this by analyzing behavior: "You follow both @alice and @bob, but you reply to Alice 10x more often, so Alice gets 10x more weight in your recommendations."</p>
+
+    <p><strong>Used for</strong>: Prioritizing in-network content, finding follow recommendations, and scoring out-of-network candidates based on similarity to your real connections.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/interaction_graph/" target="_blank" rel="noopener"><code>interaction_graph</code></a></p>
+
+    <h3 id="tweet-mixer">Tweet Mixer</h3>
+
+    <p><strong>What it is</strong>: A coordination service that gathers out-of-network tweet candidates from multiple sources and combines them.</p>
+
+    <p><strong>How to think about it</strong>: Tweet Mixer is like a talent scout that asks multiple agencies (TwHIN, SimClusters, UTEG, FRS) for their best recommendations, then combines those lists into one unified candidate pool to send to the Heavy Ranker.</p>
+
+    <p><strong>Why it exists</strong>: Each recommendation system has different strengths - UTEG finds trending content, SimClusters finds thematic matches, TwHIN finds geometric similarity. Tweet Mixer orchestrates these systems and ensures you get a diverse mix of out-of-network candidates rather than duplicates from the same source.</p>
+
+    <p><strong>Does NOT score</strong>: Tweet Mixer just fetches and combines. The actual scoring happens later in the Heavy Ranker.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/tweet-mixer/" target="_blank" rel="noopener"><code>tweet-mixer</code></a></p>
+
+    <h3 id="navi">Navi</h3>
+
+    <p><strong>What it is</strong>: A high-performance inference engine that runs machine learning models in production.</p>
+
+    <p><strong>How to think about it</strong>: Training a neural network happens offline in Python/TensorFlow. But when it's time to actually score tweets for millions of users, you need something blazing fast. Navi is a Rust-based serving system optimized for running the Heavy Ranker model with minimal latency.</p>
+
+    <p><strong>Why it exists</strong>: Python is too slow for production inference at Twitter's scale. Navi compiles the trained model into optimized Rust code that can score thousands of tweets per second with single-digit millisecond latency.</p>
+
+    <p><strong>Trade-off</strong>: More complex to deploy and maintain than standard TensorFlow Serving, but much faster.</p>
+
+    <p class="code-ref"><strong>Code</strong>: Proprietary, but referenced in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/scorer/NaviModelScorer.scala" target="_blank" rel="noopener"><code>NaviModelScorer.scala</code></a></p>
+
+    <h3 id="product-mixer">Product Mixer</h3>
+
+    <p><strong>What it is</strong>: A framework for building content feeds - provides reusable components for fetching candidates, scoring, filtering, and mixing content.</p>
+
+    <p><strong>How to think about it</strong>: Building a recommendation timeline involves many common steps: fetch candidates, hydrate features, run ML models, apply filters, insert ads, etc. Product Mixer provides these as Lego blocks so teams can assemble feeds without reimplementing everything from scratch.</p>
+
+    <p><strong>Why it exists</strong>: Twitter has multiple feeds (For You, Following, Lists, Search, Notifications). Product Mixer lets them share code and ensure consistency while customizing each feed's specific logic.</p>
+
+    <p><strong>Pipeline structure</strong>: Product Mixer uses a pipeline model where each stage's output feeds into the next stage, making the data flow explicit and testable.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/product-mixer/" target="_blank" rel="noopener"><code>product-mixer</code></a></p>
+
+    <h3 id="masknet">MaskNet</h3>
+
+    <p><strong>What it is</strong>: A neural network architecture designed for multi-task learning - predicting multiple related outcomes simultaneously.</p>
+
+    <p><strong>How to think about it</strong>: Traditional models predict one thing ("will you like this?"). MaskNet predicts 15 things at once (like, reply, retweet, report, etc.) while sharing knowledge between tasks. The insight is that all these predictions are related - if someone is likely to reply, they're probably also likely to like - so the model can learn more efficiently by predicting them together.</p>
+
+    <p><strong>Why it exists</strong>: Training 15 separate models would be inefficient and they'd miss shared patterns. MaskNet uses "shared towers" (neural network layers that all tasks use) and "task-specific towers" (layers unique to each prediction), getting the best of both worlds.</p>
+
+    <p><strong>The mask part</strong>: During training, MaskNet randomly "masks" (hides) some tasks to prevent the model from cheating by learning shortcuts between correlated tasks.</p>
+
+    <p class="code-ref"><strong>Code</strong>: External repo <a href="https://github.com/twitter/the-algorithm/blob/main/the-algorithm-ml/projects/home/recap/" target="_blank" rel="noopener"><code>recap</code></a></p>
+
+    <h3 id="fsboundedparam">FSBoundedParam (Feature Switch)</h3>
+
+    <p><strong>What it is</strong>: A configuration system that lets Twitter tune algorithm parameters without deploying new code.</p>
+
+    <p><strong>How to think about it</strong>: Hardcoded values like <code>val penalty = 0.75</code> require a code deployment to change. FSBoundedParam defines parameters like <code>OutOfNetworkPenalty(default=0.75, min=0.0, max=1.0)</code> that can be adjusted through a dashboard. Twitter can run A/B tests or tune values in real-time without touching code.</p>
+
+    <p><strong>Why it exists</strong>: Algorithm optimization is experimental. Twitter needs to test "what if we change the out-of-network penalty from 0.75 to 0.80?" dozens of times per week. FSBoundedParam makes this safe (the bounds prevent catastrophically bad values) and fast (no deployment required).</p>
+
+    <p><strong>Important implication</strong>: Most weights, penalties, and thresholds in the algorithm are FSBoundedParams. The March 2023 open-source code shows the <em>structure</em> and <em>formulas</em>, but Twitter can tune the <em>parameters</em> without us seeing the changes.</p>
+
+    <p class="code-ref"><strong>Code</strong>: Used throughout, defined in <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/" target="_blank" rel="noopener"><code>param</code></a></p>
+
+    <h3 id="tweepcred">TweepCred</h3>
+
+    <p><strong>What it is</strong>: A reputation score for users based on their follower graph quality, using PageRank-like algorithms.</p>
+
+    <p><strong>How to think about it</strong>: Not all followers are equal. A verified account with 1M engaged followers has higher TweepCred than a bot farm with 1M fake followers. TweepCred measures "how much does the Twitter network trust/value this user?" by looking at who follows them and the quality of those followers.</p>
+
+    <p><strong>Why it exists</strong>: Follower count alone is easily gamed. TweepCred provides a more robust measure of influence by analyzing the graph structure. It's used to boost high-quality accounts and filter low-quality ones (the SLOP filter removes users with TweepCred below a threshold).</p>
+
+    <p><strong>Verified accounts</strong>: Get a ~100x TweepCred multiplier, which partly explains why verified accounts dominate recommendations.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/graph/batch/job/tweepcred/" target="_blank" rel="noopener"><code>tweepcred</code></a></p>
+
+    <h3 id="frs">FRS (Follow Recommendations Service)</h3>
+
+    <p><strong>What it is</strong>: A service that recommends users you might want to follow.</p>
+
+    <p><strong>How to think about it</strong>: FRS analyzes your follow graph and engagement patterns to suggest accounts similar to those you already follow or engage with. But it has a dual purpose: it also feeds into timeline recommendations by showing you tweets from accounts it thinks you should follow <em>before</em> you actually follow them.</p>
+
+    <p><strong>Why it exists</strong>: Growing your follow graph improves your timeline quality (more in-network candidates). But FRS also serves as a candidate source - "here are tweets from people you don't follow but should."</p>
+
+    <p><strong>Cluster reinforcement</strong>: FRS recommends users from your strongest SimClusters, which accelerates the gravitational pull effect. If you're 60% AI cluster, FRS recommends more AI accounts, you follow them, which makes you even more AI-cluster-heavy.</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/follow-recommendations-service/" target="_blank" rel="noopener"><code>follow-recommendations-service</code></a></p>
+
+    <h3 id="user-signal-service">User Signal Service (USS)</h3>
+
+    <p><strong>What it is</strong>: A centralized platform for collecting, storing, and serving user behavior signals.</p>
+
+    <p><strong>How to think about it</strong>: Every action you take on Twitter (like, reply, click, scroll, dwell time) generates a signal. Rather than having every recommendation system separately track these signals, USS centralizes them. When the algorithm needs to know "what has this user engaged with recently?", it queries USS.</p>
+
+    <p><strong>Why it exists</strong>: Reduces duplication and ensures consistency. Multiple systems use the same signals (favorites, follows, etc.), so centralizing this in USS means one source of truth.</p>
+
+    <p><strong>Real-time and batch</strong>: USS provides both real-time signals (recent clicks in the last hour) and batch signals (aggregated engagement over weeks/months).</p>
+
+    <p class="code-ref"><strong>Code</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/user-signal-service/" target="_blank" rel="noopener"><code>user-signal-service</code></a></p>
+
+    <hr>
+
+    <h2 id="code-evolution">Code Evolution Timeline</h2>
+
+    <p>Twitter's algorithm was open-sourced in two major releases:</p>
+
+    <div class="callout">
+      <h4 style="margin-top: 0;">March 2023: Architecture Skeleton</h4>
+      <p><strong>~300 files</strong> showing the 5-stage pipeline structure, basic candidate sources, and core concepts. The <code>HomeGlobalParams.scala</code> file contained only 86 lines with basic configuration—<strong>no engagement weights, no ML integration configs</strong>.</p>
+
+      <h4>September 2025: Complete Implementation</h4>
+      <p><strong>+762 new files</strong> adding 161 feature hydrators, 56 filters, 29 scorers, complete ML integration, and full parameter definitions. The <code>HomeGlobalParams.scala</code> file expanded to 1,479 lines with all engagement weight parameters defined.</p>
+    </div>
+
+    <h3>What This Means</h3>
+
+    <p>Our investigation analyzes a <strong>composite system</strong>:</p>
+    <ul>
+      <li><strong>Architecture</strong>: March 2023 foundation (5-stage pipeline)</li>
+      <li><strong>Implementation</strong>: September 2025 details (161 hydrators, 56 filters)</li>
+      <li><strong>Values</strong>: External sources (ML repo, engineering blogs)</li>
+    </ul>
+
+    <p><strong>Important</strong>: Parameter definitions exist with <code>default = 0.0</code>, but actual production values come from Twitter's internal configuration system. The code shows <em>structure</em> and <em>formulas</em>; external documentation provides <em>values</em>.</p>
+
+    <p><strong>Core findings remain valid</strong>: The fundamental mechanisms (multiplicative scoring, exponential decay, 0.75x out-of-network penalty, 140-day feedback fatigue) are unchanged. The September 2025 release added detail and confirmed the architecture we analyzed.</p>
+
+    <hr>
+
+    <h2 id="verification">How to Verify Our Claims</h2>
+
+    <p>Every finding in this investigation can be verified. Here's how:</p>
+
+    <h3>1. Get the Code</h3>
+    <pre><code>git clone https://github.com/twitter/the-algorithm.git
+cd the-algorithm</code></pre>
+
+    <h3>2. Navigate to Referenced Files</h3>
+    <p>We provide file paths like:</p>
+    <p class="code-ref"><a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L1028" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-1028</code></a></p>
+
+    <p>To view this:</p>
+    <pre><code>cd home-mixer/server/src/main/scala/com/twitter/home_mixer/param/
+cat HomeGlobalParams.scala | sed -n '786,1028p'</code></pre>
+
+    <h3>3. Check Implementation Date</h3>
+    <p>To see when code was last modified:</p>
+    <pre><code>git blame path/to/file.scala | grep -A5 "pattern"</code></pre>
+
+    <h3>4. Verify Calculations</h3>
+    <p>We show calculations like:</p>
+    <pre><code>Tweet score = 0.5 × P(favorite) + 13.5 × P(reply)
+
+Example:
+P(favorite) = 0.1 (10% chance)
+P(reply) = 0.02 (2% chance)
+
+Score = 0.5 × 0.1 + 13.5 × 0.02
+      = 0.05 + 0.27
+      = 0.32</code></pre>
+
+    <p>You can verify these against the code references we provide.</p>
+
+    <h3>5. Cross-Reference Documentation</h3>
+    <p>Twitter published some official explanations:</p>
+    <ul>
+      <li><a href="https://blog.x.com/engineering/en_us/topics/open-source/2023/twitter-recommendation-algorithm" target="_blank">Engineering blog post</a></li>
+      <li><a href="https://github.com/twitter/the-algorithm-ml" target="_blank">ML algorithm details</a></li>
+      <li>README files throughout the codebase</li>
+    </ul>
+
+    <p>Our analysis adds detail and implications beyond what Twitter officially documented.</p>
+
+    <hr>
+
+    <h2 id="file-index">File Index: Where to Find Things</h2>
+
+    <h3>Main Pipeline</h3>
+    <p class="code-ref"><strong>Entry point</strong>: <code>home-mixer/server/src/main/scala/com/twitter/home_mixer/product/for_you/ForYouProductPipelineConfig.scala</code></p>
+    <p class="code-ref"><strong>Scoring orchestration</strong>: <code>home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/ScoredTweetsProductPipelineConfig.scala</code></p>
+
+    <h3>Engagement Weights</h3>
+    <p class="code-ref"><strong>All 15 weight parameters</strong>: <code>home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala:786-1028</code></p>
+    <p class="code-ref"><strong>Engagement type definitions</strong>: <code>home-mixer/server/src/main/scala/com/twitter/home_mixer/model/PredictedScoreFeature.scala:62-336</code></p>
+
+    <h3>Filters and Penalties</h3>
+    <p class="code-ref"><strong>"Not interested" filtering</strong>: <code>home-mixer/.../filter/FeedbackFatigueFilter.scala</code></p>
+    <p class="code-ref"><strong>140-day penalty calculation</strong>: <code>home-mixer/.../scorer/FeedbackFatigueScorer.scala</code></p>
+    <p class="code-ref"><strong>Author diversity exponential decay</strong>: <code>home-mixer/.../scorer/AuthorBasedListwiseRescoringProvider.scala:54</code></p>
+    <p class="code-ref"><strong>Out-of-network 0.75x multiplier</strong>: <code>home-mixer/.../scorer/RescoringFactorProvider.scala:45-57</code></p>
+
+    <h3>Candidate Sources</h3>
+    <p class="code-ref"><strong>Earlybird search index</strong>: <code>src/java/com/twitter/search/</code></p>
+    <p class="code-ref"><strong>UTEG</strong>: <code>src/scala/com/twitter/recos/user_tweet_entity_graph/</code></p>
+    <p class="code-ref"><strong>Out-of-network coordination</strong>: <code>tweet-mixer/</code></p>
+    <p class="code-ref"><strong>FRS</strong>: <code>follow-recommendations-service/</code></p>
+
+    <h3>SimClusters and Communities</h3>
+    <p class="code-ref"><strong>Community detection and embeddings</strong>: <code>src/scala/com/twitter/simclusters_v2/</code></p>
+    <p class="code-ref"><strong>Approximate nearest neighbor search</strong>: <code>simclusters-ann/</code></p>
+
+    <h3>User Signals</h3>
+    <p class="code-ref"><strong>Complete list of 20+ tracked signals</strong>: <code>RETREIVAL_SIGNALS.md</code></p>
+    <p class="code-ref"><strong>Signal collection and serving</strong>: <code>user-signal-service/</code></p>
+    <p class="code-ref"><strong>Real-time action stream</strong>: <code>unified_user_actions/</code></p>
+
+    <hr>
+
+    <h2 id="further-reading">Further Reading</h2>
+
+    <h3>Official Sources</h3>
+    <ul>
+      <li><a href="https://github.com/twitter/the-algorithm" target="_blank">Twitter's open-source algorithm repository</a></li>
+      <li><a href="https://github.com/twitter/the-algorithm-ml" target="_blank">Machine learning models repository</a></li>
+      <li><a href="https://blog.x.com/engineering/en_us/topics/open-source/2023/twitter-recommendation-algorithm" target="_blank">Twitter's engineering blog post</a></li>
+    </ul>
+
+    <hr>
+
+    <div class="callout">
+      <p><strong>Questions or corrections?</strong> This is a living document. If you find errors or have questions about our analysis, please open an issue or submit a pull request on GitHub.</p>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="nav-buttons">
+      <a href="../index.html" class="nav-button">← Back to Main</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+  </footer>
+
+</body>
+</html>

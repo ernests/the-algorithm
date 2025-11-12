@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Full Pipeline Explorer - How Tweets Get Ranked</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>The Full Pipeline Explorer</h1>
+    <p class="lead">Follow a tweet's complete journey from posting to your timeline through all 5 algorithmic stages. See exactly how scoring, filters, and penalties determine what you see.</p>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>What Is The Recommendation Pipeline?</h2>
+
+    <p>Every day, Twitter processes approximately <strong>1 billion tweets</strong> through a 5-stage pipeline. By the time one reaches your feed, it has passed through candidate generation, feature extraction, machine learning scoring, multiple filters and penalties, and final mixing. Only <strong>~4% survive</strong> to appear in feeds.</p>
+
+    <h3>The Five Stages</h3>
+
+    <pre><code>Stage 1: Candidate Generation (~1B → ~1,400)
+  Fetch potential tweets from various sources
+
+Stage 2: Feature Hydration (~1,400 tweets)
+  Attach ~6,000 features to each tweet
+
+Stage 3: Heavy Ranker ML Scoring (~1,400 tweets)
+  Predict 15 engagement types, calculate weighted scores
+
+Stage 4: Filters & Penalties (~1,400 → ~100-200)
+  Apply multipliers, diversity penalties, safety filters
+
+Stage 5: Mixing & Serving (~100-200 → 50-100)
+  Insert ads, modules, deliver final timeline</code></pre>
+
+    <h3>Why This Matters</h3>
+
+    <ul>
+      <li><strong>Extreme filtering</strong>: 96% of tweets never reach any feeds</li>
+      <li><strong>Multi-stage compounding</strong>: Advantages and penalties multiply across stages</li>
+      <li><strong>Invisible decisions</strong>: Most filtering happens before you ever see rankings</li>
+      <li><strong>Same tweet, different treatment</strong>: Identical content gets different scores for different users</li>
+    </ul>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: FEEL                                                 -->
+    <!-- Interactive: Step through the pipeline for different tweets  -->
+    <!-- ============================================================ -->
+
+    <h2>Follow a Tweet Through The Pipeline</h2>
+
+    <h3>Configure the Tweet</h3>
+    <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
+      Choose a tweet scenario to follow through the pipeline. Each scenario has realistic engagement probabilities and characteristics.
+    </p>
+
+    <div class="pipeline-scenarios">
+      <div class="pipeline-scenario-card" data-scenario="viral-thread">
+        <div class="scenario-header">
+          <h4>🔥 Viral Educational Thread</h4>
+          <span class="scenario-badge in-network">In-Network</span>
+        </div>
+        <p class="scenario-desc">High-quality thread from someone you follow in your main interest cluster</p>
+        <div class="scenario-stats">
+          <span>📊 Reply: 8%</span>
+          <span>❤️ Like: 25%</span>
+          <span>🔁 RT: 3%</span>
+        </div>
+      </div>
+
+      <div class="pipeline-scenario-card" data-scenario="out-of-network">
+        <div class="scenario-header">
+          <h4>🌐 Out-of-Network Quality</h4>
+          <span class="scenario-badge out-of-network">Out-of-Network</span>
+        </div>
+        <p class="scenario-desc">Great content from someone you don't follow, different cluster</p>
+        <div class="scenario-stats">
+          <span>📊 Reply: 5%</span>
+          <span>❤️ Like: 18%</span>
+          <span>🔁 RT: 2%</span>
+        </div>
+      </div>
+
+      <div class="pipeline-scenario-card" data-scenario="controversial">
+        <div class="scenario-header">
+          <h4>⚡ Controversial Take</h4>
+          <span class="scenario-badge in-network">In-Network</span>
+        </div>
+        <p class="scenario-desc">Hot take that drives replies, from followed author</p>
+        <div class="scenario-stats">
+          <span>📊 Reply: 12%</span>
+          <span>❤️ Like: 8%</span>
+          <span>👎 Negative: 4%</span>
+        </div>
+      </div>
+
+      <div class="pipeline-scenario-card" data-scenario="repeat-author">
+        <div class="scenario-header">
+          <h4>📝 3rd Tweet from Same Author</h4>
+          <span class="scenario-badge in-network">In-Network</span>
+        </div>
+        <p class="scenario-desc">Good content but author already has 2 tweets in your feed</p>
+        <div class="scenario-stats">
+          <span>📊 Reply: 6%</span>
+          <span>❤️ Like: 20%</span>
+          <span>⚠️ 3rd tweet penalty</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="pipeline-container" style="display: none;">
+      <hr style="margin: 3rem 0;">
+
+      <h2>Pipeline Journey: <span id="scenario-name"></span></h2>
+
+      <!-- Pipeline Overview -->
+      <div class="pipeline-overview">
+        <div class="pipeline-funnel">
+          <div class="funnel-stage">
+            <div class="funnel-count">~1 Billion</div>
+            <div class="funnel-label">All Tweets</div>
+          </div>
+          <div class="funnel-arrow">↓</div>
+          <div class="funnel-stage" data-stage="1">
+            <div class="funnel-count">~1,400</div>
+            <div class="funnel-label">Candidates</div>
+          </div>
+          <div class="funnel-arrow">↓</div>
+          <div class="funnel-stage" data-stage="2">
+            <div class="funnel-count">~1,400</div>
+            <div class="funnel-label">Feature Hydration</div>
+          </div>
+          <div class="funnel-arrow">↓</div>
+          <div class="funnel-stage" data-stage="3">
+            <div class="funnel-count">~1,400</div>
+            <div class="funnel-label">ML Scoring</div>
+          </div>
+          <div class="funnel-arrow">↓</div>
+          <div class="funnel-stage" data-stage="4">
+            <div class="funnel-count">~100-200</div>
+            <div class="funnel-label">Filters & Penalties</div>
+          </div>
+          <div class="funnel-arrow">↓</div>
+          <div class="funnel-stage" data-stage="5">
+            <div class="funnel-count">50-100</div>
+            <div class="funnel-label">Final Timeline</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Stage View -->
+      <div id="stage-detail-container">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <!-- Score Tracker -->
+      <div class="score-tracker">
+        <h3>Score Evolution</h3>
+        <div id="score-breakdown">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="pipeline-navigation">
+        <button id="prev-stage-btn" class="pipeline-nav-btn secondary" disabled>
+          ← Previous Stage
+        </button>
+        <button id="next-stage-btn" class="pipeline-nav-btn primary">
+          Next Stage →
+        </button>
+      </div>
+
+      <!-- Final Summary -->
+      <div id="final-summary" style="display: none;">
+        <div class="callout">
+          <h3 style="margin-top: 0;">Pipeline Complete</h3>
+          <p id="summary-text"></p>
+        </div>
+      </div>
+    </div>
+
+    <hr style="margin-top: 3rem;">
+
+    <!-- ============================================================ -->
+    <!-- PART 3: PROOF                                                -->
+    <!-- Technical details: Stage mechanics, formulas, code refs      -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>Stage 1: Candidate Generation</h3>
+    <p>Fetch ~1,400 candidate tweets from various sources based on your profile:</p>
+    <ul>
+      <li><strong>In-Network</strong>: ~50% from people you follow (via Earlybird search)</li>
+      <li><strong>SimClusters</strong>: ~20% from your interest clusters</li>
+      <li><strong>Real Graph</strong>: ~15% from social connections</li>
+      <li><strong>UTEG</strong>: ~15% from engagement graph</li>
+    </ul>
+
+    <h3>Stage 2: Feature Hydration</h3>
+    <p>Attach ~6,000 features to each tweet:</p>
+    <ul>
+      <li>Author features (follower count, verified status, reputation score)</li>
+      <li>Tweet features (media type, length, recency, topic)</li>
+      <li>Engagement features (predicted probabilities for 15 engagement types)</li>
+      <li>User-tweet features (cluster similarity, real graph connection)</li>
+    </ul>
+
+    <h3>Stage 3: Heavy Ranker (ML Scoring)</h3>
+    <p>MaskNet model predicts 15 engagement probabilities and calculates weighted score:</p>
+    <pre><code>score = Σ (probability_i × weight_i)
+
+Top weights:
+- Reply with Author Engagement: 75.0
+- Reply: 13.5
+- Good Profile Click: 12.0
+- Retweet: 1.0
+- Favorite: 0.5
+
+Negative weights:
+- Negative Feedback: -74.0
+- Report: -369.0</code></pre>
+
+    <h3>Stage 4: Filters & Penalties</h3>
+    <p>Multiple filters reshape the ranking:</p>
+    <ul>
+      <li><strong>Out-of-Network Penalty</strong>: 0.75x multiplier (25% penalty)</li>
+      <li><strong>Author Diversity</strong>: Exponential decay for multiple tweets from same author</li>
+      <li><strong>Cluster Scoring</strong>: Multiply by your cluster interest (this creates filter bubbles!)</li>
+      <li><strong>Feedback Fatigue</strong>: 80% penalty after "not interested" click</li>
+      <li><strong>Previously Seen</strong>: Remove tweets you've already seen</li>
+      <li><strong>Safety Filters</strong>: Remove NSFW, blocked users, muted keywords</li>
+    </ul>
+
+    <h3>Stage 5: Mixing & Serving</h3>
+    <p>Insert ads, promoted tweets, follow recommendations, and serve final timeline.</p>
+
+    <hr>
+
+    <h2>Code References</h2>
+    <div class="code-ref">
+      <p><strong>Candidate generation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/for_you/ForYouScoredTweetsCandidatePipelineConfig.scala" target="_blank" rel="noopener"><code>ForYouScoredTweetsCandidatePipelineConfig.scala</code></a></p>
+      <p><strong>Heavy Ranker weights</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L786-L1028" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:786-1028</code></a></p>
+      <p><strong>Scoring computation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/scorer/NaviModelScorer.scala#L139-L178" target="_blank" rel="noopener"><code>NaviModelScorer.scala:139-178</code></a></p>
+      <p><strong>Out-of-network penalty</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/scorer/RescoringFactorProvider.scala#L45-L57" target="_blank" rel="noopener"><code>RescoringFactorProvider.scala:45-57</code></a></p>
+      <p><strong>Author diversity</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/scorer/AuthorBasedListwiseRescoringProvider.scala#L54" target="_blank" rel="noopener"><code>AuthorBasedListwiseRescoringProvider.scala:54</code></a></p>
+      <p><strong>Cluster scoring</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L84-L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:84-94</code></a></p>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="invisible-filter.html">Try Invisible Filter →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/pipeline-explorer.js"></script>
+</body>
+</html>

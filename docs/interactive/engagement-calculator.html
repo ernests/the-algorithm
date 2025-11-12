@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engagement Weight Calculator - Tweet Scoring Simulator</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Engagement Weight Calculator</h1>
+
+    <!-- ============================================ -->
+    <!-- PART 1: INTUITION -->
+    <!-- ============================================ -->
+
+    <h2>What Are Engagement Weights?</h2>
+
+    <p>Not all engagement is equal. When you like, reply, or retweet a tweet, the algorithm assigns each action a different value. These values—called <strong>engagement weights</strong>—determine how the algorithm scores every tweet in your feed.</p>
+
+    <p><strong>How it works</strong>: The Heavy Ranker (Twitter's scoring model) predicts 15 different types of engagement for every tweet. Each prediction gets multiplied by its weight, and the sum becomes the tweet's score. Higher score = higher ranking in your feed.</p>
+
+    <p><strong>Why weights matter</strong>: These weights reveal what Twitter optimizes for. They're not just scoring mechanisms—they shape:</p>
+    <ul>
+      <li><strong>What content gets amplified</strong> - High-weighted engagement (replies: 13.5) drives visibility more than low-weighted engagement (likes: 0.5)</li>
+      <li><strong>Your algorithmic identity</strong> - Your engagement history (weighted by these values) trains your cluster assignment weekly</li>
+      <li><strong>Creator incentives</strong> - Creators optimize for high-weighted engagement, not just high volume</li>
+      <li><strong>The feedback loop</strong> - High-weighted engagement → stronger cluster assignment → see more similar content → more high-weighted engagement</li>
+    </ul>
+
+    <h3>The Core Insight: Conversation Over Consumption</h3>
+
+    <p>Twitter massively prioritizes <strong>conversation</strong> (replies, especially with author engagement) over <strong>passive consumption</strong> (likes, video views):</p>
+
+    <pre><code>Conversation (active):
+- Reply with author engagement: 75.0 (most valuable)
+- Reply: 13.5
+- Good profile click: 12.0
+
+Passive consumption:
+- Favorite (like): 0.5
+- Retweet: 1.0
+- Video playback 50%: 0.005 (nearly worthless)</code></pre>
+
+    <p><strong>The math</strong>: One reply with author engagement (75.0) equals <strong>150 likes</strong> (75.0 ÷ 0.5). This isn't a bug—it's the business model.</p>
+
+    <p><strong>Why?</strong> Conversation drives time on platform:</p>
+    <ul>
+      <li>Reading replies takes time</li>
+      <li>Writing replies takes time</li>
+      <li>Waiting for responses keeps users checking back</li>
+      <li>Back-and-forth conversations = more ad impressions</li>
+    </ul>
+
+    <h3>The Shape of the Weights</h3>
+
+    <p><strong>High-value actions</strong> (10.0 to 75.0): Deep engagement requiring effort—replies, profile exploration, meaningful clicks. These signal genuine interest.</p>
+
+    <p><strong>Low-value actions</strong> (0.5 to 1.0): Passive engagement—likes, retweets, basic viewing. Easy to give, minimal signal.</p>
+
+    <p><strong>Negative actions</strong> (-74.0 to -369.0): Explicit dislike or policy violations. Catastrophic penalties that last weeks to months.</p>
+
+    <div class="callout">
+      <p><strong>The Engagement Weights Paradox</strong>: Favorites (likes) are the most visible metric, tracked by all systems, and the easiest engagement. Yet they have the <em>lowest</em> positive weight (0.5). The algorithm doesn't care what's "popular" by likes—it cares what generates conversation.</p>
+    </div>
+
+    <hr style="margin: 3rem 0;">
+
+    <!-- ============================================ -->
+    <!-- PART 2: FEEL (Interactive) -->
+    <!-- ============================================ -->
+
+    <h2>Experience How Engagement Weights Work</h2>
+
+    <p>Use this calculator to see how different engagement patterns score. Notice how high-weighted engagement (conversation) massively outweighs passive engagement (likes) even when volume is much lower.</p>
+
+    <h3>The 15 Engagement Weights</h3>
+    <p style="font-size: 0.95rem; color: var(--text-secondary);">These weight values come from X's ML training repository. The algorithm multiplies predicted probabilities by these weights.</p>
+
+    <div style="background-color: var(--background-alt); padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+      <canvas id="weights-chart" width="800" height="500"></canvas>
+    </div>
+
+    <div class="callout warning">
+      <p><strong>⚠️ Important Context on Weight Values</strong>:</p>
+      <ul style="margin: 0.75rem 0;">
+        <li><strong>Parameter structure</strong>: The open-source code defines weights as <code>FSBoundedParam</code> values (configurable parameters with default = 0.0 and range ±10,000)</li>
+        <li><strong>Actual values</strong>: The weight values shown here (0.5, 13.5, 75.0, etc.) come from X's separate ML training repository, not the main algorithm repo</li>
+        <li><strong>Configurability</strong>: X can adjust these weights without deploying new code</li>
+        <li><strong>Current production</strong>: We don't know if these exact values are still used in production; they represent X's documented configuration from their ML repo</li>
+      </ul>
+      <p class="code-ref" style="margin-top: 1rem;">
+        <strong>Parameter definitions</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L788-L930" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:788-930</code></a><br>
+        <strong>Weight values source</strong>: <a href="https://github.com/twitter/the-algorithm-ml/tree/main/projects/home/recap" target="_blank" rel="noopener"><code>the-algorithm-ml/projects/home/recap</code></a>
+      </p>
+    </div>
+
+    <h3>Tweet Score Calculator</h3>
+    <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+      Compare how different tweet types score. Each scenario represents realistic engagement probabilities. Notice how conversation-driven tweets can outscore viral content.
+    </p>
+
+    <div class="widget">
+      <h4>Select a Tweet Scenario</h4>
+
+      <div class="scenario-grid">
+        <!-- Row 1: High Value Content -->
+        <div class="scenario-card" data-scenario="educational-thread">
+          <h4>📚 Educational Thread</h4>
+          <p class="scenario-description">"How to build a neural network from scratch (10 tweet thread with code examples)"</p>
+          <p class="scenario-engagement">High replies with author engagement, good clicks, moderate likes</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="breaking-news">
+          <h4>📰 Breaking News</h4>
+          <p class="scenario-description">"BREAKING: Major tech company announces layoffs. Thread with details ↓"</p>
+          <p class="scenario-engagement">Very high engagement across all types, some profile clicks</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="useful-resource">
+          <h4>🔧 Useful Resource</h4>
+          <p class="scenario-description">"I've compiled 100 free resources for learning data science: [link]"</p>
+          <p class="scenario-engagement">High good clicks, retweets, bookmarks, moderate replies</p>
+        </div>
+
+        <!-- Row 2: Moderate/Viral Content -->
+        <div class="scenario-card" data-scenario="wholesome">
+          <h4>❤️ Wholesome Content</h4>
+          <p class="scenario-description">"My daughter just wrote her first line of code. So proud! [cute photo]"</p>
+          <p class="scenario-engagement">Very high likes, low replies, some retweets</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="viral-meme">
+          <h4>😂 Viral Meme</h4>
+          <p class="scenario-description">"me: I'll just check Twitter for 5 minutes [4 hours later meme]"</p>
+          <p class="scenario-engagement">Extremely high likes/retweets, low replies, good clicks</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="personal-story">
+          <h4>💭 Personal Story</h4>
+          <p class="scenario-description">"Thread about my journey from bootcamp to senior engineer (authentic, relatable)"</p>
+          <p class="scenario-engagement">Balanced engagement, good reply-with-engagement rate</p>
+        </div>
+
+        <!-- Row 3: Controversial/Problematic -->
+        <div class="scenario-card" data-scenario="hot-take">
+          <h4>🔥 Hot Take</h4>
+          <p class="scenario-description">"Unpopular opinion: [controversial tech opinion that sparks debate]"</p>
+          <p class="scenario-engagement">Very high replies, moderate negative feedback, low likes</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="quote-dunk">
+          <h4>💢 Quote Tweet Dunk</h4>
+          <p class="scenario-description">"lmao imagine actually believing this [quote tweets bad take]"</p>
+          <p class="scenario-engagement">High replies (debate), high negative feedback, mixed signals</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="engagement-bait">
+          <h4>🎣 Engagement Bait</h4>
+          <p class="scenario-description">"Drop a 🔥 if you agree! Follow me for more content like this! #engagement"</p>
+          <p class="scenario-engagement">Moderate replies/likes, HIGH negative feedback (users hate this)</p>
+        </div>
+
+        <!-- Row 4: Low Quality -->
+        <div class="scenario-card" data-scenario="spam">
+          <h4>🚫 Spam/Low Quality</h4>
+          <p class="scenario-description">"CHECK OUT MY CRYPTO COURSE!!! 🚀💰 LINK IN BIO [generic spam]"</p>
+          <p class="scenario-engagement">Very low positive engagement, high negative feedback, reports</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="reply-guy">
+          <h4>😬 Reply Guy</h4>
+          <p class="scenario-description">"Actually, [unsolicited correction on someone's casual tweet]"</p>
+          <p class="scenario-engagement">Low engagement, moderate negative feedback</p>
+        </div>
+
+        <div class="scenario-card" data-scenario="algorithm-hack">
+          <h4>🤖 Algorithm Gaming</h4>
+          <p class="scenario-description">"Agree or disagree? Comment below! ⬇️ [intentionally vague to drive replies]"</p>
+          <p class="scenario-engagement">High replies but also high negative feedback</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-container" style="display: none; margin-top: 3rem;">
+      <h2>Tweet Score: <span id="total-score" style="color: var(--primary-color);">0.00</span></h2>
+
+      <div id="score-interpretation" style="background-color: var(--background-alt); padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0;">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <h3>Score Breakdown</h3>
+      <div style="background-color: var(--background-alt); padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+        <canvas id="contribution-chart" width="800" height="400"></canvas>
+      </div>
+
+      <table id="breakdown-table" style="margin-top: 2rem;">
+        <thead>
+          <tr>
+            <th>Engagement Type</th>
+            <th>Probability</th>
+            <th>Weight</th>
+            <th>Contribution</th>
+          </tr>
+        </thead>
+        <tbody id="breakdown-tbody">
+          <!-- Populated by JavaScript -->
+        </tbody>
+        <tfoot>
+          <tr style="font-weight: 600; border-top: 2px solid var(--border-color);">
+            <td colspan="3">Total Score</td>
+            <td id="breakdown-total">0.00</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="callout" style="margin-top: 2rem;">
+        <h3 style="margin-top: 0;">What This Means</h3>
+        <p>This score is just the <strong>Heavy Ranker base score</strong>. The actual ranking involves additional multipliers:</p>
+        <ul style="margin: 1rem 0;">
+          <li><strong>Cluster matching</strong>: Multiplied by your interest similarity (0.0 to 1.0)</li>
+          <li><strong>Out-of-network penalty</strong>: 0.75x if from someone you don't follow</li>
+          <li><strong>Author diversity</strong>: 0.625x for 2nd tweet from same author, 0.4375x for 3rd</li>
+          <li><strong>Feedback fatigue</strong>: 0.2x if you recently clicked "not interested" on this author</li>
+          <li><strong>Recency decay</strong>: Older tweets score lower (8-hour half-life)</li>
+        </ul>
+        <p><strong>These multipliers compound!</strong> A high base score can be destroyed by penalties.</p>
+      </div>
+    </div>
+
+    <h3>How Weights Train Your Feed</h3>
+
+    <div class="callout success" style="margin-top: 2rem;">
+      <p><strong>These weights don't just rank tweets—they train the algorithm what YOU care about.</strong></p>
+
+      <p style="margin-top: 1rem;"><strong>The weekly feedback loop</strong> (FavBasedUserInterestedIn - DEFAULT):</p>
+      <ol style="margin: 1rem 0; padding-left: 2rem;">
+        <li><strong>You engage with content</strong> - All engagement types (likes, replies, clicks) get tracked</li>
+        <li><strong>InterestedIn updates weekly</strong> - Your cluster assignment shifts based on engagement patterns</li>
+        <li><strong>High-weighted engagements signal stronger interest</strong> - Replies (13.5) signal 27x more interest than likes (0.5)</li>
+        <li><strong>Algorithm shows you more of what you reply to</strong> - Not just what you like</li>
+        <li><strong>Loop compounds</strong> - More AI replies → stronger AI cluster → see more AI content → even more AI replies</li>
+      </ol>
+
+      <p style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+        <strong>Want to see this in action?</strong><br>
+        <a href="cluster-explorer.html" style="color: var(--primary-color); font-weight: 600;">→ Calculate how your engagement shapes your clusters</a><br>
+        <a href="journey-simulator.html" style="color: var(--primary-color); font-weight: 600;">→ See how your feed drifts over 6 months</a>
+      </p>
+
+      <p class="code-ref" style="margin-top: 1rem;"><strong>Code</strong>: InterestedIn uses engagement history: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L292" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:292</code></a></p>
+    </div>
+
+    <hr style="margin: 3rem 0;">
+
+    <!-- ============================================ -->
+    <!-- PART 3: PROOF (Math & Code) -->
+    <!-- ============================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>The Scoring Formula</h3>
+
+    <p>Every tweet's base score is calculated as a weighted sum of predicted engagement probabilities:</p>
+
+    <pre><code>tweet_score = Σ(P(engagement_i) × weight_i) + epsilon
+
+where:
+- P(engagement_i) = Heavy Ranker's predicted probability (0.0 to 1.0)
+- weight_i = configured weight from the table above
+- epsilon = 0.001 (small constant to avoid zero scores)
+- i ranges over all 15 engagement types</code></pre>
+
+    <h4>Concrete Example</h4>
+
+    <p>Let's score a tweet with realistic predictions:</p>
+
+    <pre><code>Heavy Ranker predictions:
+- P(favorite) = 0.20 (20% chance user will like)
+- P(reply) = 0.05 (5% chance user will reply)
+- P(reply_with_author_engagement) = 0.01 (1% chance of reply-back)
+- P(retweet) = 0.10 (10% chance of retweet)
+- P(good_click) = 0.15 (15% chance of meaningful click)
+- P(negative_feedback) = 0.02 (2% chance of "not interested")
+
+Weighted contributions (using March 2023 weights):
+- Favorite: 0.20 × 0.5 = 0.10
+- Reply: 0.05 × 13.5 = 0.675
+- Reply w/ author: 0.01 × 75.0 = 0.75
+- Retweet: 0.10 × 1.0 = 0.10
+- Good click: 0.15 × 11.0 = 1.65
+- Negative: 0.02 × -74.0 = -1.48
+- Epsilon: 0.001
+
+Total score = 0.10 + 0.675 + 0.75 + 0.10 + 1.65 - 1.48 + 0.001 = 1.796</code></pre>
+
+    <p><strong>Key observation</strong>: The 1% reply-with-author-engagement probability (0.75 contribution) contributes more than the 20% favorite probability (0.10 contribution). This is by design.</p>
+
+    <h3>Why These Specific Weights?</h3>
+
+    <p>From Twitter's official documentation:</p>
+
+    <blockquote style="border-left: 3px solid var(--primary-color); padding-left: 1rem; margin: 1.5rem 0; font-style: italic;">
+      "Each engagement has a different average probability, the weights were originally set so that, on average, each weighted engagement probability contributes a near-equal amount to the score. Since then, we have periodically adjusted the weights to optimize for platform metrics."
+    </blockquote>
+
+    <p><strong>Translation</strong>:</p>
+    <ul>
+      <li><strong>Initial design</strong>: Normalize by rarity (rare actions get high weights, common actions get low weights)</li>
+      <li><strong>Current state</strong>: Tuned to optimize Twitter's business goals—time on platform, conversation depth, user retention</li>
+    </ul>
+
+    <h3>Configurability: All Weights Are Tunable</h3>
+
+    <p>Every weight is defined as an <code>FSBoundedParam</code>, meaning X can adjust them without deploying new code:</p>
+
+    <pre><code>// From HomeGlobalParams.scala:788-930
+object ReplyEngagedByAuthorParam extends FSBoundedParam[Double](
+  name = "home_mixer_model_weight_reply_engaged_by_author",
+  default = 0.0,        // Not actual value - just placeholder
+  min = -10000.0,       // Can be negative (penalty)
+  max = 10000.0         // Can be very positive (amplification)
+)</code></pre>
+
+    <p><strong>Where the actual weight values come from</strong>:</p>
+    <ul>
+      <li>The open-source algorithm repo shows parameter structure (default = 0.0 is a placeholder)</li>
+      <li>X's ML training repo (<a href="https://github.com/twitter/the-algorithm-ml/tree/main/projects/home/recap" target="_blank" rel="noopener">the-algorithm-ml/projects/home/recap</a>) documents the actual production configuration</li>
+      <li>The values we show (0.5, 13.5, 75.0, etc.) come from that ML repo</li>
+      <li>These represent X's documented weights, but current production may differ</li>
+    </ul>
+
+    <p><strong>What this means</strong>:</p>
+    <ul>
+      <li>X can A/B test different weight configurations</li>
+      <li>Weights can be adjusted per-user or per-region</li>
+      <li>Production values may differ from the documented ML repo values</li>
+      <li>X can pivot platform priorities by adjusting weights (more video, less conversation, etc.)</li>
+    </ul>
+
+    <h3>The Complete Weight Table (March 2023)</h3>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 2rem 0;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--border-color);">
+          <th style="text-align: left; padding: 0.75rem;">Engagement Type</th>
+          <th style="text-align: right; padding: 0.75rem;">Weight</th>
+          <th style="text-align: right; padding: 0.75rem;">Relative to Favorite</th>
+          <th style="text-align: left; padding: 0.75rem;">Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;"><strong>Reply Engaged by Author</strong></td>
+          <td style="text-align: right; padding: 0.75rem; color: #50fa7b; font-weight: 600;">75.0</td>
+          <td style="text-align: right; padding: 0.75rem;">150x</td>
+          <td style="padding: 0.75rem;">🏆 Conversation</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Reply</td>
+          <td style="text-align: right; padding: 0.75rem; color: #50fa7b;">13.5</td>
+          <td style="text-align: right; padding: 0.75rem;">27x</td>
+          <td style="padding: 0.75rem;">💬 Conversation</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Good Profile Click</td>
+          <td style="text-align: right; padding: 0.75rem; color: #50fa7b;">12.0</td>
+          <td style="text-align: right; padding: 0.75rem;">24x</td>
+          <td style="padding: 0.75rem;">🔍 Deep Engagement</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Good Click V1</td>
+          <td style="text-align: right; padding: 0.75rem; color: #50fa7b;">11.0</td>
+          <td style="text-align: right; padding: 0.75rem;">22x</td>
+          <td style="padding: 0.75rem;">🔍 Deep Engagement</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Good Click V2</td>
+          <td style="text-align: right; padding: 0.75rem; color: #50fa7b;">10.0</td>
+          <td style="text-align: right; padding: 0.75rem;">20x</td>
+          <td style="padding: 0.75rem;">🔍 Deep Engagement</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Retweet</td>
+          <td style="text-align: right; padding: 0.75rem;">1.0</td>
+          <td style="text-align: right; padding: 0.75rem;">2x</td>
+          <td style="padding: 0.75rem;">🔄 Sharing</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Favorite (Like)</td>
+          <td style="text-align: right; padding: 0.75rem;">0.5</td>
+          <td style="text-align: right; padding: 0.75rem;">1x (baseline)</td>
+          <td style="padding: 0.75rem;">❤️ Passive</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;">Video Playback 50%</td>
+          <td style="text-align: right; padding: 0.75rem;">0.005</td>
+          <td style="text-align: right; padding: 0.75rem;">0.01x</td>
+          <td style="padding: 0.75rem;">📹 Passive</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem;"><strong>Negative Feedback V2</strong></td>
+          <td style="text-align: right; padding: 0.75rem; color: #ff6b6b; font-weight: 600;">-74.0</td>
+          <td style="text-align: right; padding: 0.75rem;">-148x</td>
+          <td style="padding: 0.75rem;">❌ Negative</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.75rem;"><strong>Report</strong></td>
+          <td style="text-align: right; padding: 0.75rem; color: #ff6b6b; font-weight: 600;">-369.0</td>
+          <td style="text-align: right; padding: 0.75rem;">-738x</td>
+          <td style="padding: 0.75rem;">☠️ Nuclear</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size: 0.9rem; color: var(--text-secondary);"><em>Note: Bookmark, Share, Dwell, Video Quality View, and Video Extended weights are configurable but not disclosed in March 2023 snapshot</em></p>
+
+    <h3>The Nuclear Penalties</h3>
+
+    <h4>Negative Feedback V2: -74.0</h4>
+
+    <p><strong>Equivalent to -148 favorites of negative value</strong></p>
+
+    <p>Triggered by: "Not interested" click, "See less often" click, muting author</p>
+
+    <p><strong>Duration</strong>: 140-day linear decay</p>
+    <pre><code>Day 0: 0.2x multiplier (80% penalty - nearly invisible)
+Day 70: 0.6x multiplier (40% penalty - recovering)
+Day 140: 1.0x multiplier (penalty expires)</code></pre>
+
+    <p><strong>Impact</strong>: A single "not interested" click suppresses content from that author for 5 months.</p>
+
+    <h4>Report: -369.0</h4>
+
+    <p><strong>Equivalent to -738 favorites of negative value</strong></p>
+
+    <p>Triggered by: Explicit report for spam, harassment, misinformation, or other policy violations</p>
+
+    <p><strong>To overcome ONE report</strong>, a tweet would need:</p>
+    <pre><code>738 favorites (at 0.5 weight each), OR
+28 replies (at 13.5 weight each), OR
+5 reply-with-author-engagements (at 75.0 weight each)</code></pre>
+
+    <p><strong>In practice</strong>: Impossible to overcome. Reports are a platform-level harm signal. Content that gets reported is effectively dead.</p>
+
+    <h3>Code References</h3>
+
+    <div style="background-color: var(--code-background); padding: 1.5rem; border-radius: 6px; margin: 1.5rem 0;">
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Engagement type definitions</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/model/PredictedScoreFeature.scala#L62-L336" target="_blank" rel="noopener"><code>PredictedScoreFeature.scala:62-336</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Weight configuration</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/param/HomeGlobalParams.scala#L788-L930" target="_blank" rel="noopener"><code>HomeGlobalParams.scala:788-930</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Scoring implementation</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/home-mixer/server/src/main/scala/com/twitter/home_mixer/product/scored_tweets/scorer/NaviModelScorer.scala#L139-L178" target="_blank" rel="noopener"><code>NaviModelScorer.scala:139-178</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>Heavy Ranker (MaskNet) details</strong>:<br>
+      External repo: <a href="https://github.com/twitter/the-algorithm-ml/blob/main/projects/home/recap/README.md" target="_blank" rel="noopener"><code>the-algorithm-ml/projects/home/recap/README.md</code></a></p>
+
+      <p class="code-ref" style="margin: 0.5rem 0;"><strong>InterestedIn uses engagement</strong>:<br>
+      <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L292" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:292</code></a></p>
+    </div>
+
+    <h3>What The Algorithm Doesn't Know</h3>
+
+    <p>The Heavy Ranker predicts <em>engagement probability</em>, not:</p>
+    <ul>
+      <li><strong>Truth</strong>: No fact-checking in the scoring model</li>
+      <li><strong>Quality</strong>: Only engagement likelihood, not content value</li>
+      <li><strong>Intent</strong>: Can't distinguish productive debate from toxic conflict</li>
+      <li><strong>Context</strong>: Replies could be agreement or furious disagreement—same weight either way</li>
+    </ul>
+
+    <p><strong>The algorithm optimizes for engagement, not for truth, quality, or societal value.</strong> This is a business decision, not a technical limitation.</p>
+
+    <h3>Key Implications</h3>
+
+    <div class="callout" style="margin: 2rem 0;">
+      <p><strong>For users trying to shape their feed</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>Your likes barely affect your feed (0.5 weight)</li>
+        <li>Your replies HEAVILY affect your feed (13.5 weight, 27x more)</li>
+        <li>Want diverse content? Reply to diverse content, not just like it</li>
+        <li>"Not interested" clicks are very effective (140-day penalty)</li>
+      </ul>
+
+      <p style="margin-top: 1rem;"><strong>For creators trying to maximize reach</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>Optimize for conversation (replies: 13.5, reply w/ author: 75.0)</li>
+        <li>ENGAGE WITH YOUR REPLIES (this is the 75.0 weight—highest value action!)</li>
+        <li>Drive curiosity (profile clicks: 12.0)</li>
+        <li>Avoid like-bait (0.5 weight, minimal value)</li>
+        <li>Avoid negative feedback triggers (-74.0 = death sentence for 5 months)</li>
+      </ul>
+
+      <p style="margin-top: 1rem;"><strong>The conversation advantage</strong>:</p>
+      <ul style="margin: 0.75rem 0 0 1.5rem;">
+        <li>One reply-with-author-engagement (75.0) = 150 likes</li>
+        <li>Creators who engage with replies have massive algorithmic advantage</li>
+        <li>A tweet with 10 likes + 5 engaged replies can compete with 1,000 passive likes</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="cluster-explorer.html">Try Cluster Explorer →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/engagement-calculator.js"></script>
+</body>
+</html>

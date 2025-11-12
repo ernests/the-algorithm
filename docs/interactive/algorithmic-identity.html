@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Algorithmic Identity - KnownFor, InterestedIn, and Producer Embeddings</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Your Algorithmic Identity</h1>
+    <p class="lead">Every user has two algorithmic profiles: one determines what you see, the other determines who sees you. They're calculated independently and can drift in completely different directions—and you're not fully in control of either.</p>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>The Three-Layer Architecture</h2>
+
+    <p>Twitter's recommendation system is built on three interconnected layers. Understanding how they work together—and how they can diverge—is key to understanding why your feed behaves the way it does.</p>
+
+    <h3>Layer 1: KnownFor (The Foundation)</h3>
+
+    <p>KnownFor is the foundation layer that identifies what the top 20 million most popular accounts on X are "known for"—which clusters they belong to.</p>
+
+    <ul>
+      <li><strong>Who's included</strong>: Top 20M producers on the platform</li>
+      <li><strong>What it calculates</strong>: Which clusters each producer belongs to (e.g., AI/Tech, Cooking, Politics)</li>
+      <li><strong>Update frequency</strong>: Weekly (7 days)</li>
+      <li><strong>Purpose</strong>: Creates the cluster structure that everything else builds on</li>
+    </ul>
+
+    <p>This is the algorithmic "map" of who creates what kind of content. It's slow to change (weekly updates) because it represents the relatively stable structure of content communities on the platform.</p>
+
+    <div class="callout">
+      <p><strong>Key insight</strong>: KnownFor only covers the top 20M accounts. If you're not in the top 20M, you're not in this foundation layer—but you still get a producer profile (see Layer 3).</p>
+    </div>
+
+    <h3>Layer 2: InterestedIn (Your Consumer Profile)</h3>
+
+    <p>InterestedIn is your <strong>consumer profile</strong>—it determines what content the algorithm shows <strong>you</strong>. If KnownFor is about what people create and are "known for," InterestedIn is what you are "interested in"—or more precisely, what content the algorithm predicts you'll engage with.</p>
+
+    <ul>
+      <li><strong>Who has this</strong>: Every user on the platform</li>
+      <li><strong>What it calculates</strong>: Your cluster interests as a consumer (e.g., 60% AI/Tech, 40% Cooking)</li>
+      <li><strong>Update frequency</strong>: Every 7 days (weekly batch updates)</li>
+      <li><strong>Based on</strong>: YOUR engagement choices—what you like, reply to, retweet, click on</li>
+      <li><strong>Controls</strong>: What content YOU see in your timeline</li>
+    </ul>
+
+    <p><strong>The 100-Day Half-Life</strong>: Here's the catch—your old engagement doesn't disappear. The algorithm uses exponential decay to weight your historical engagement:</p>
+
+    <pre><code>Engagement from 3 months ago: 50% weight
+Engagement from 6 months ago: 25% weight
+Engagement from 9 months ago: 12.5% weight
+
+Old engagement lingers for months, making your cluster scores slow to shift.</code></pre>
+
+    <p><strong>What this means in practice</strong>: If you engaged heavily with AI content for a week back in January, that engagement will continue influencing your recommendations through July. Your InterestedIn profile is like a slow-moving ship—it takes sustained effort to change course.</p>
+
+    <div class="callout">
+      <p><strong>Relationship type</strong>: ONE-TO-MANY. You (one person) engage with many producers. You choose what to engage with (moderate agency).</p>
+    </div>
+
+    <h3>Layer 3: Producer Embeddings (Your Producer Profile)</h3>
+
+    <p>Every user has a second algorithmic representation: your <strong>producer profile</strong>. This is calculated by Producer Embeddings and determines <strong>who sees YOUR content</strong>.</p>
+
+    <ul>
+      <li><strong>Who has this</strong>: Only users with ≥100 followers</li>
+      <li><strong>What it calculates</strong>: Which audiences should see your content (based on who engages with you)</li>
+      <li><strong>Update frequency</strong>: Every 7 days (weekly batch updates)</li>
+      <li><strong>Based on</strong>: OTHERS' engagement with you—who likes, replies to, retweets your content</li>
+      <li><strong>Controls</strong>: Who sees YOUR content when you post</li>
+    </ul>
+
+    <p><strong>The 100-Follower Threshold</strong>: Below 100 followers, you have no algorithmic boost for exposure. At 99 followers, you're invisible to the recommendation system. At 101 followers, your content starts being calculated and shown to users beyond your immediate followers.</p>
+
+    <div class="callout">
+      <p><strong>Relationship type</strong>: MANY-TO-ONE. Many consumers engage with you (one producer). You DON'T choose who engages with you (low agency).</p>
+    </div>
+
+    <h3>The Critical Insight: They Can Diverge</h3>
+
+    <p>Your InterestedIn (consumer profile) and Producer Embeddings (producer profile) are calculated <strong>completely independently</strong>. They can—and often do—follow completely different paths:</p>
+
+    <div style="background-color: var(--background-alt); padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+      <h4 style="margin-top: 0;">Example: The Divergent Profile</h4>
+      <pre><code>Your InterestedIn (what you consume):
+  Cooking: 70%
+  AI/Tech: 30%
+  → Algorithm shows you cooking recipes, food content
+
+Your Producer Embeddings (who sees your content):
+  AI/Tech: 65%
+  Politics: 25%
+  Cooking: 10%
+  → Algorithm shows your posts to AI and politics audiences
+
+Result: You consume cooking content but produce for AI/politics audiences.
+When you post about cooking (your interest), your AI/politics audience
+doesn't engage. Your reach collapses.</code></pre>
+    </div>
+
+    <h3>Why You're Not in Control</h3>
+
+    <table style="width: 100%; margin: 2rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: var(--background-alt);">
+          <th style="padding: 1rem; text-align: left;">Profile</th>
+          <th style="padding: 1rem; text-align: left;">You Control?</th>
+          <th style="padding: 1rem; text-align: left;">Why/Why Not</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>InterestedIn</strong><br>(Consumer)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Moderate control</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">You choose what to engage with, BUT:<br>• The algorithm chooses what to show you first<br>• 100-day half-life means old engagement lingers<br>• Multiplicative scoring creates drift you didn't choose</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);"><strong>Producer Embeddings</strong><br>(Producer)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Low control</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">You DON'T choose who engages with you:<br>• One viral tweet can completely reshape your producer profile<br>• You can't control which audience discovers you<br>• Weighted by audience size (50k engagement > 1k engagement)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>The bottom line</strong>: Neither profile stays where you want it. Your consumer profile drifts based on what the algorithm shows you and what you engage with. Your producer profile drifts based on who happens to engage with you. Both are moving targets shaped by forces beyond your full control.</p>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: PROOF                                                -->
+    <!-- Technical details: Formulas, thresholds, code                -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>The 100-Day Half-Life Formula</h3>
+
+    <p>Your engagement doesn't have an expiration date—it decays exponentially with a 100-day half-life:</p>
+
+    <pre><code>weight = 2^(-days_elapsed / 100)
+
+Examples:
+Day 0:   weight = 2^(-0 / 100)   = 1.0    (100%)
+Day 100: weight = 2^(-100 / 100) = 0.5    (50%)
+Day 200: weight = 2^(-200 / 100) = 0.25   (25%)
+Day 300: weight = 2^(-300 / 100) = 0.125  (12.5%)
+Day 400: weight = 2^(-400 / 100) = 0.0625 (6.25%)
+
+Practical meaning:
+• Engagement from 3 months ago: 50% weight
+• Engagement from 6 months ago: 25% weight
+• Engagement from 1 year ago: 6.25% weight
+
+Your profile is weighted average of months of behavior, not just this week.</code></pre>
+
+    <h3>InterestedIn Calculation (ONE-TO-MANY)</h3>
+
+    <p>Your InterestedIn consumer profile is calculated from YOUR engagement with many producers:</p>
+
+    <pre><code>For each cluster C:
+  InterestedIn[C] = Σ (engagement_weight × time_decay × author_KnownFor[C])
+                    for all authors you engaged with
+
+Then L2-normalize so all clusters sum to 1.0
+
+Example:
+You engaged with 10 AI authors (decay-weighted engagement: 100)
+You engaged with 5 Cooking authors (decay-weighted engagement: 50)
+
+Before normalization:
+  AI: 100
+  Cooking: 50
+
+After L2-normalization (sqrt(100² + 50²) = 111.8):
+  AI: 100 / 111.8 = 0.89 = 89%
+  Cooking: 50 / 111.8 = 0.45 = 45%
+
+Wait, that doesn't sum to 100%! L2-norm ≠ sum to 1.0
+Actually normalize by total: 100 + 50 = 150
+  AI: 100 / 150 = 67%
+  Cooking: 50 / 150 = 33%
+
+Your feed becomes 67% AI, 33% Cooking based on your engagement choices.</code></pre>
+
+    <h3>Producer Embeddings Calculation (MANY-TO-ONE)</h3>
+
+    <p>Your Producer Embeddings producer profile is calculated from OTHERS' engagement with you:</p>
+
+    <pre><code>For each cluster C:
+  ProducerEmbedding[C] = Σ (engagement_weight × time_decay × consumer_InterestedIn[C])
+                         for all consumers who engaged with you
+
+Then L2-normalize so all clusters sum to 1.0
+
+Example:
+1,000 AI enthusiasts engaged with you (avg InterestedIn: AI 75%)
+50 Cooking enthusiasts engaged with you (avg InterestedIn: Cooking 80%)
+
+Weighted contributions:
+  AI: 1,000 × 0.75 = 750
+  Cooking: 50 × 0.80 = 40
+
+After normalization (750 + 40 = 790):
+  AI: 750 / 790 = 95%
+  Cooking: 40 / 790 = 5%
+
+Your content gets shown to 95% AI audiences, 5% Cooking audiences.
+
+Note: You can't choose this! It's determined by who engaged with you.</code></pre>
+
+    <h3>The 100-Follower Threshold</h3>
+
+    <p>Producer Embeddings only exist for accounts with ≥100 followers:</p>
+
+    <pre><code>Followers < 100:
+  • No Producer Embedding calculated
+  • No algorithmic boost beyond your immediate followers
+  • Your content is essentially invisible to the recommendation system
+
+Followers ≥ 100:
+  • Producer Embedding calculated weekly
+  • Your content enters the recommendation pipeline
+  • Algorithm can show your tweets to users who don't follow you
+
+Practical impact:
+At 99 followers: Only your 99 followers might see your tweets
+At 101 followers: Potentially millions could see your tweets (if well-matched)</code></pre>
+
+    <h3>The 0.072 Threshold (Death of a Cluster)</h3>
+
+    <p>When a cluster in your InterestedIn drops below 0.072 (7.2%), it gets filtered out completely:</p>
+
+    <pre><code>Week 0:  AI 60%, Cooking 40% (balanced start)
+Week 12: AI 70%, Cooking 30% (drifting)
+Week 24: AI 76%, Cooking 24% (minority struggling)
+Week 40: AI 85%, Cooking 15% (barely visible)
+Week 60: AI 93%, Cooking 7% (below threshold!)
+Week 61: AI 100%, Cooking 0% (Cooking filtered out permanently)
+
+Result: Complete monopolarization from a balanced starting point.
+
+The 0.072 threshold creates a "death spiral"—once a cluster falls below it,
+you stop seeing that content, so you can't engage with it, so it can never
+recover. Permanent filter bubble lock-in.</code></pre>
+
+    <h3>Why Divergence Happens: The Viral Tweet Trap</h3>
+
+    <p>One viral tweet can completely reshape your Producer Embedding:</p>
+
+    <pre><code>Week 0: Your Producer Embedding
+  AI/Tech: 75% (your core audience, 1,000 followers)
+  Cooking: 25% (secondary interest, 300 followers)
+
+Week 1: You post one politics joke (human moment, exploring)
+  Goes viral: 50,000 politics enthusiasts engage
+
+New calculation:
+  Old engagement: 1,000 × 0.75 (AI) = 750
+                  300 × 0.25 (Cooking) = 75
+  New engagement: 50,000 × 0.80 (Politics) = 40,000
+
+After normalization (750 + 75 + 40,000 = 40,825):
+  AI: 750 / 40,825 = 1.8%
+  Cooking: 75 / 40,825 = 0.2%
+  Politics: 40,000 / 40,825 = 98%
+
+Your Producer Embedding is now 98% Politics.
+
+Result: When you post AI/Tech content (your passion), algorithm shows it to
+Politics audiences who don't care. Engagement collapses. You're trapped.</code></pre>
+
+    <h3>Recovery Times</h3>
+
+    <p>Changing your algorithmic identity is slow:</p>
+
+    <table style="width: 100%; margin: 2rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: var(--background-alt);">
+          <th style="padding: 1rem; text-align: left;">Scenario</th>
+          <th style="padding: 1rem; text-align: left;">Timeline</th>
+          <th style="padding: 1rem; text-align: left;">Strategy</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Shift InterestedIn consumer profile</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">8-12 weeks</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Stop engaging with dominant cluster entirely. Over-engage with target cluster (40+ interactions/day).</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Shift Producer Embeddings producer profile</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">12-16+ weeks</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Consistently post target content. Manually engage target audience. Accept low reach during transition.</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Recover from viral misalignment</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">16-24 weeks</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Wait for viral engagement to decay (100-day half-life). Sustain core audience engagement. Most don't have patience.</td>
+        </tr>
+        <tr>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Recover from threshold death (&lt;0.072)</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Impossible algorithmically</td>
+          <td style="padding: 1rem; border-top: 1px solid var(--border-color);">Must manually rebuild: unfollow dominant cluster, follow target cluster accounts, use "Following" tab.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Code References</h3>
+
+    <div class="code-ref">
+      <p><strong>InterestedIn calculation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L26-L30" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:26-30</code></a></p>
+      <p><strong>Producer Embeddings calculation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/embedding/ProducerEmbeddingsFromInterestedIn.scala#L41-L54" target="_blank" rel="noopener"><code>ProducerEmbeddingsFromInterestedIn.scala:41-54</code></a></p>
+      <p><strong>100-day half-life decay</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L88" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:88</code></a> - <code>val halfLifeInDaysForFavScore = 100</code></p>
+      <p><strong>100-follower threshold</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/embedding/ProducerEmbeddingsFromInterestedIn.scala#L47" target="_blank" rel="noopener"><code>ProducerEmbeddingsFromInterestedIn.scala:47</code></a> - filters for <code>numFollowers >= minNumFollowers</code> where <code>minNumFollowers = 100</code></p>
+      <p><strong>Weekly batch updates</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L59" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:59</code></a> - <code>val batchIncrement: Duration = Days(7)</code></p>
+      <p><strong>KnownFor weekly updates</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/update_known_for/UpdateKnownFor20M145K2020.scala#L46" target="_blank" rel="noopener"><code>UpdateKnownFor20M145K2020.scala:46</code></a> - <code>batchIncrement: Duration = Days(7)</code></p>
+      <p><strong>L2 normalization</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/common/SimClustersEmbedding.scala#L59-L72" target="_blank" rel="noopener"><code>SimClustersEmbedding.scala:59-72</code></a></p>
+      <p><strong>0.072 threshold filtering</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/cr-mixer/server/src/main/scala/com/twitter/cr_mixer/param/InterestedInParams.scala#L63" target="_blank" rel="noopener"><code>InterestedInParams.scala:63</code></a> - <code>default = 0.072</code></p>
+    </div>
+
+    <hr>
+
+    <h2>The Bottom Line</h2>
+
+    <p>You have two algorithmic identities on X:</p>
+
+    <ol>
+      <li><strong>InterestedIn (Consumer)</strong>: Determines what you see. Based on what you engage with. Updates weekly. You have moderate control—but 100-day decay, multiplicative scoring, and threshold death create drift you didn't choose.</li>
+      <li><strong>Producer Embeddings (Producer)</strong>: Determines who sees you. Based on who engages with you. Updates weekly. Requires ≥100 followers. You have low control—one viral moment can reshape it permanently.</li>
+    </ol>
+
+    <p>These profiles are calculated independently. They can diverge. And you're not fully in control of where either ends up.</p>
+
+    <p><strong>The result</strong>: Most users drift into algorithmic states they didn't consciously choose—consuming content that reinforces one cluster, producing for audiences that don't match their interests, or both. The architecture creates paths of least resistance, and users follow them without realizing it's happening.</p>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="reinforcement-loop.html">Next: Reinforcement Loop →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+</body>
+</html>

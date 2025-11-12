@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Reinforcement Loop Machine - Why Drift Is Inevitable</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-container">
+      <h1><a href="../index.html">How X's Algorithm Really Works</a></h1>
+      <div class="nav-links">
+        <a href="../index.html#findings">Key Findings</a>
+        <a href="../index.html#interactives">Interactive Explorations</a>
+        <a href="../parts/reference.html">Reference</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <h1>The Reinforcement Loop Machine</h1>
+    <p class="lead">Step through the algorithmic feedback loop that causes your interests to drift, even when you don't change your behavior.</p>
+
+    <!-- ============================================================ -->
+    <!-- PART 1: INTUITION                                            -->
+    <!-- Plain language: What is this? Why does it matter?            -->
+    <!-- ============================================================ -->
+
+    <h2>What Is The Reinforcement Loop?</h2>
+
+    <p>The algorithm creates a self-reinforcing feedback loop: Your profile determines what you see. What you see determines what you engage with. What you engage with updates your profile. Round and round, <strong>amplifying imbalances week after week</strong>.</p>
+
+    <h3>The Six Steps of the Loop</h3>
+
+    <pre><code>1. Your Profile: 60% AI, 40% Cooking
+
+2. Fetch Candidates: Algorithm fetches more AI tweets (60%) than Cooking (40%)
+
+3. Score Tweets: AI tweets score higher (0.9 × 0.60 vs 0.9 × 0.40)
+
+4. Build Feed: You see 60% AI, 40% Cooking (matches your profile)
+
+5. You Engage: You engage with what you see (60% AI, 40% Cooking)
+
+6. Update Profile: Next week, your profile becomes 62% AI, 38% Cooking
+
+→ Return to Step 1 with NEW profile (loop repeats)</code></pre>
+
+    <h3>Why This Matters</h3>
+
+    <ul>
+      <li><strong>Mathematical inevitability</strong>: Any imbalance (even 51/49) will drift over time</li>
+      <li><strong>Zero-sum dynamics</strong>: L2 normalization means one interest growing forces others to shrink</li>
+      <li><strong>Weekly compounding</strong>: Each cycle amplifies the previous imbalance</li>
+      <li><strong>No equilibrium</strong>: The system has no rebalancing mechanism—it only concentrates</li>
+    </ul>
+
+    <h3>The Shape of the Drift</h3>
+
+    <p>The drift follows a <strong>logistic curve</strong>: Fast growth initially (60 → 70% in 12 weeks), then slowing as you approach saturation (~80% is typical plateau). This isn't about your behavior changing—it's pure mathematics from multiplicative scoring + L2 normalization + weekly batch updates.</p>
+
+    <hr>
+
+    <!-- ============================================================ -->
+    <!-- PART 2: FEEL                                                 -->
+    <!-- Interactive: Step through the loop week by week              -->
+    <!-- ============================================================ -->
+
+    <h2>Step Through The Loop</h2>
+
+    <h3>Configure Your Starting Profile</h3>
+
+    <div class="loop-config">
+      <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Set your initial cluster interests. Watch how even a small imbalance (60/40) compounds over time.
+      </p>
+
+      <div class="cluster-input-group">
+        <div class="cluster-input">
+          <label>
+            <span style="color: #1DA1F2;">■ AI/Tech</span>
+            <span id="loop-ai-display">60%</span>
+          </label>
+          <input type="range" id="loop-ai" min="10" max="90" value="60" step="5">
+        </div>
+
+        <div class="cluster-input">
+          <label>
+            <span style="color: #17bf63;">■ Cooking</span>
+            <span id="loop-cooking-display">40%</span>
+          </label>
+          <input type="range" id="loop-cooking" min="10" max="90" value="40" step="5">
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+          Total: <span id="loop-total">100%</span>
+        </p>
+      </div>
+
+      <button id="start-loop-btn" style="width: 100%; max-width: 300px; margin: 1.5rem auto 0; display: block;">
+        Start Week 0
+      </button>
+    </div>
+
+    <div id="loop-container" style="display: none; margin-top: 3rem;">
+      <hr style="margin: 3rem 0;">
+
+      <!-- Week Counter -->
+      <div class="week-header">
+        <h2>Week <span id="current-week">0</span></h2>
+        <p style="color: var(--text-secondary); font-size: 1rem;">
+          Follow the algorithm's logic step by step
+        </p>
+      </div>
+
+      <!-- Current Stage Display -->
+      <div id="stage-container" class="stage-display">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <!-- Navigation -->
+      <div class="loop-navigation">
+        <button id="next-stage-btn" class="loop-nav-btn primary">
+          Next Step →
+        </button>
+        <button id="restart-btn" class="loop-nav-btn secondary" style="display: none;">
+          ↻ Restart
+        </button>
+      </div>
+
+      <!-- Progress Tracker -->
+      <div class="progress-tracker">
+        <div class="progress-item" data-stage="profile">
+          <div class="progress-dot"></div>
+          <span>Your Profile</span>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-item" data-stage="candidates">
+          <div class="progress-dot"></div>
+          <span>Fetch Candidates</span>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-item" data-stage="scoring">
+          <div class="progress-dot"></div>
+          <span>Score Tweets</span>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-item" data-stage="feed">
+          <div class="progress-dot"></div>
+          <span>Build Feed</span>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-item" data-stage="engagement">
+          <div class="progress-dot"></div>
+          <span>You Engage</span>
+        </div>
+        <div class="progress-line"></div>
+        <div class="progress-item" data-stage="update">
+          <div class="progress-dot"></div>
+          <span>Update Profile</span>
+        </div>
+      </div>
+
+      <!-- History Timeline -->
+      <div id="history-container" style="margin-top: 3rem; display: none;">
+        <h3>Your Profile Over Time</h3>
+        <div id="history-timeline" class="history-timeline">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="callout warning" style="margin-top: 2rem;">
+          <h4 style="margin-top: 0;">What's Happening</h4>
+          <p id="drift-analysis"></p>
+        </div>
+      </div>
+    </div>
+
+    <hr style="margin-top: 3rem;">
+
+    <!-- ============================================================ -->
+    <!-- PART 3: PROOF                                                -->
+    <!-- Technical details: Mathematical explanation, code refs       -->
+    <!-- ============================================================ -->
+
+    <h2>The Technical Details</h2>
+
+    <h3>Why This Loop Creates Drift</h3>
+
+    <h4>1. Multiplicative Scoring Amplifies Advantages</h4>
+    <p>At the scoring stage, tweets get multiplied by your cluster interest:</p>
+    <pre><code>AI tweet (quality 0.9): 0.9 × 0.60 = 0.54
+Cooking tweet (quality 0.9): 0.9 × 0.40 = 0.36
+
+50% score advantage for AI despite equal quality!</code></pre>
+
+    <h4>2. You Engage With What You See</h4>
+    <p>Because AI content ranks higher, you see more of it. Your engagement naturally matches what's visible:</p>
+    <pre><code>Feed composition: 60% AI, 40% Cooking
+Your engagement: 60% AI, 40% Cooking
+
+You didn't change your preferences - you engaged with what was shown!</code></pre>
+
+    <h4>3. L2 Normalization Creates Zero-Sum Dynamics</h4>
+    <p>Cluster interests must sum to 1.0 (100%). When AI increases, Cooking MUST decrease:</p>
+    <pre><code>Before: 60% AI, 40% Cooking (sum = 100%)
+After:  62% AI, 38% Cooking (sum = 100%)
+
+AI gained 2%, Cooking lost 2% - it's zero-sum!</code></pre>
+
+    <h4>4. Weekly Batch Updates Lock In Changes</h4>
+    <p>InterestedIn updates weekly via batch jobs. Each week's drift becomes the new baseline:</p>
+    <pre><code>Week 0:  60% AI, 40% Cooking
+Week 1:  62% AI, 38% Cooking  ← New baseline
+Week 4:  64% AI, 36% Cooking  ← Compounds
+Week 12: 70% AI, 30% Cooking  ← Accelerates
+Week 24: 76% AI, 24% Cooking  ← Lock-in</code></pre>
+
+    <h4>5. The Loop Feeds Itself</h4>
+    <p>The output becomes the input:</p>
+    <ul>
+      <li><strong>Week 0</strong>: 60/40 profile → see 60/40 feed → engage 60/40</li>
+      <li><strong>Week 1</strong>: 62/38 profile → see 62/38 feed → engage 62/38</li>
+      <li><strong>Week 4</strong>: 64/36 profile → see 64/36 feed → engage 64/36</li>
+      <li><strong>Result</strong>: Each iteration amplifies the imbalance</li>
+    </ul>
+
+    <hr>
+
+    <h2>Mathematical Inevitability</h2>
+
+    <p>This isn't about user behavior. It's pure math:</p>
+
+    <div class="callout">
+      <h4 style="margin-top: 0;">The Drift Formula</h4>
+      <pre><code>New_AI_Interest = Old_AI_Interest + (drift_rate × advantage × slowdown)
+
+Where:
+- drift_rate = engagement intensity (0.008 to 0.025)
+- advantage = AI_interest / Cooking_interest (e.g., 0.60 / 0.40 = 1.5)
+- slowdown = 1 - (imbalance × 0.5) (slows as approaching extremes)
+
+Example (Week 0 → Week 1):
+New_AI = 0.60 + (0.015 × 1.5 × 0.9) = 0.60 + 0.02025 ≈ 0.62</code></pre>
+    </div>
+
+    <p><strong>Key insight</strong>: As long as there's ANY imbalance (not perfect 50/50), drift will occur. The stronger interest always wins.</p>
+
+    <h3>The Only Ways to Prevent Drift</h3>
+
+    <ol>
+      <li><strong>Start perfectly balanced (50/50)</strong> - But even 51/49 will drift over time</li>
+      <li><strong>Use additive scoring</strong> - Instead of multiplication, use addition (but this eliminates personalization)</li>
+      <li><strong>Disable cluster scoring</strong> - Don't multiply by interest (but then why have clusters?)</li>
+      <li><strong>Active counterbalancing</strong> - Manually over-engage with minority interest (exhausting)</li>
+    </ol>
+
+    <p>In the current design, <strong>drift is inevitable</strong> for any user with unequal interests.</p>
+
+    <hr>
+
+    <h2>Code References</h2>
+    <div class="code-ref">
+      <p><strong>Multiplicative scoring</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/simclusters-ann/server/src/main/scala/com/twitter/simclustersann/candidate_source/ApproximateCosineSimilarity.scala#L84-L94" target="_blank" rel="noopener"><code>ApproximateCosineSimilarity.scala:84-94</code></a></p>
+      <p><strong>Weekly batch updates</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L59" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:59</code></a> - <code>val batchIncrement: Duration = Days(7)</code></p>
+      <p><strong>L2 normalization</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/common/SimClustersEmbedding.scala#L59-L72" target="_blank" rel="noopener"><code>SimClustersEmbedding.scala:59-72</code></a></p>
+      <p><strong>InterestedIn calculation</strong>: <a href="https://github.com/twitter/the-algorithm/blob/main/src/scala/com/twitter/simclusters_v2/scalding/InterestedInFromKnownFor.scala#L88-L95" target="_blank" rel="noopener"><code>InterestedInFromKnownFor.scala:88-95</code></a> - Follows who you follow, what you engage with</p>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="page-nav">
+      <a href="../index.html">← Back to Main</a>
+      <a href="journey-simulator.html">Try Journey Simulator →</a>
+    </div>
+    <p>Questions or corrections? Open an issue on GitHub.</p>
+    <p>This is based on Twitter's March 2023 open-source algorithm.</p>
+  </footer>
+
+  <script src="../js/reinforcement-loop.js"></script>
+</body>
+</html>
